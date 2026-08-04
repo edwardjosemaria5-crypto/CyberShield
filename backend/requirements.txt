@@ -1,0 +1,12 @@
+fastapi
+uvicorn
+requests
+python-whois
+httpx
+pytest
+pytest-asyncio
+pytest-cov
+dnspython
+sqlalchemy
+reportlab
+pydantic

@@ -1,0 +1,1 @@
+"""Headers analysis module."""

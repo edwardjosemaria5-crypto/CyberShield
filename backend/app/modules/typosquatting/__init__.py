@@ -1,0 +1,1 @@
+"""Typosquatting detection module."""

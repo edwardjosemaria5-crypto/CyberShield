@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.venv/
+venv/
+env/
+*.log
+
+# Node
+node_modules/
+dist/
+dist-ssr/
+
+# Editor
+.vscode/*
+.idea/
+*.suo
+.DS_Store
+
+# Env
+.env
+*.local
+
+# OS
+Thumbs.db

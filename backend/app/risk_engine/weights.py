@@ -1,0 +1,7 @@
+"""Current scoring weights retained from the legacy scan workflow."""
+
+HEADER_ERROR_PENALTY = 25
+DNS_ERROR_PENALTY = 10
+WHOIS_ERROR_PENALTY = 10
+MISSING_HEADER_PENALTY = 3
+MAX_MISSING_HEADER_PENALTY = 20
