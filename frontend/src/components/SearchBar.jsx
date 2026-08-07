@@ -1,5 +1,3 @@
-import React from 'react';
-
 export default function SearchBar({ value, onChange, onSubmit }) {
   return (
     <form onSubmit={onSubmit} style={{ display: 'flex', gap: '0.75rem', marginTop: '1rem' }}>

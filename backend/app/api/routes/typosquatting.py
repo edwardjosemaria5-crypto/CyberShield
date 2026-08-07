@@ -1,10 +1,11 @@
 from fastapi import APIRouter
 
-from app.services.endpoint_service import typosquatting_root_response
+from app.modules.typosquatting.service import run_typosquatting_check
+from app.schemas.module_result import ModuleResult
 
 router = APIRouter(prefix="/typosquatting", tags=["typosquatting"])
 
 
-@router.get("/")
-def typosquatting_root():
-    return typosquatting_root_response()
+@router.get("/{domain}")
+def typosquatting_lookup(domain: str) -> ModuleResult:
+    return run_typosquatting_check(domain)

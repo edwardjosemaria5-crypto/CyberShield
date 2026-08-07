@@ -1,1 +1,1 @@
-"""Blacklist analysis module placeholder."""
+"""Blacklist analysis module: DNSBL and static malicious-feed checks."""

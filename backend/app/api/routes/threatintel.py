@@ -1,10 +1,11 @@
 from fastapi import APIRouter
 
-from app.services.endpoint_service import threat_intelligence_root_response
+from app.modules.threatintel.service import run_threatintel_check
+from app.schemas.module_result import ModuleResult
 
 router = APIRouter(prefix="/threatintel", tags=["threatintel"])
 
 
-@router.get("/")
-def threatintel_root():
-    return threat_intelligence_root_response()
+@router.get("/{domain}")
+def threatintel_lookup(domain: str) -> ModuleResult:
+    return run_threatintel_check(domain)

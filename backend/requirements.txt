@@ -10,3 +10,4 @@ dnspython
 sqlalchemy
 reportlab
 pydantic
+cryptography

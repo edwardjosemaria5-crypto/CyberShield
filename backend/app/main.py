@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 # Import API routes
 from app.api.routes import (
+    brand_detection,
     dns,
     headers,
     health,
@@ -61,3 +62,4 @@ app.include_router(reputation.router)
 app.include_router(ssl.router)
 app.include_router(threatintel.router)
 app.include_router(typosquatting.router)
+app.include_router(brand_detection.router)

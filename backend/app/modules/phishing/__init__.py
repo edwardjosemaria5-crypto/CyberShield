@@ -1,1 +1,1 @@
-"""Phishing analysis module placeholder."""
+"""Phishing analysis module: heuristic domain structure checks."""

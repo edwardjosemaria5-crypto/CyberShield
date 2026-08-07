@@ -1,10 +1,11 @@
 from fastapi import APIRouter
 
-from app.services.endpoint_service import ports_root_response
+from app.modules.ports.service import run_ports_check
+from app.schemas.module_result import ModuleResult
 
 router = APIRouter(prefix="/ports", tags=["ports"])
 
 
-@router.get("/")
-def ports_root():
-    return ports_root_response()
+@router.get("/{host:path}")
+def ports_scan(host: str) -> ModuleResult:
+    return run_ports_check(host)

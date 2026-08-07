@@ -1,5 +1,3 @@
-import re
-
 SUSPICIOUS_KEYWORDS = [
     "login", "verify", "secure", "account", "banking", "update",
     "support", "paypal", "apple", "microsoft", "google", "meta",

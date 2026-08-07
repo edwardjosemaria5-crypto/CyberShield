@@ -1,29 +1,20 @@
 from concurrent.futures import ThreadPoolExecutor
 import socket
 
-COMMON_PORTS = {
-    21: ("FTP", "Medium", "Unencrypted File Transfer Protocol exposed."),
-    22: ("SSH", "Low", "Secure Shell service open."),
-    23: ("Telnet", "High", "Insecure Telnet protocol exposed."),
-    25: ("SMTP", "Low", "Simple Mail Transfer Protocol open."),
-    53: ("DNS", "Low", "Domain Name System server open."),
-    80: ("HTTP", "Low", "Standard web server port open."),
-    110: ("POP3", "Medium", "Unencrypted POP3 mail retrieval open."),
-    143: ("IMAP", "Medium", "Unencrypted IMAP mail access open."),
-    443: ("HTTPS", "Low", "Secure web server port open."),
-    465: ("SMTPS", "Low", "Encrypted SMTP port open."),
-    587: ("SMTP Submission", "Low", "Mail submission port open."),
-    993: ("IMAPS", "Low", "Secure IMAP mail port open."),
-    995: ("POP3S", "Low", "Secure POP3 mail port open."),
-    3306: ("MySQL", "High", "Database server directly exposed to public internet."),
-    3389: ("RDP", "High", "Remote Desktop Protocol directly exposed."),
-    5432: ("PostgreSQL", "High", "PostgreSQL database directly exposed."),
-    8080: ("HTTP-Proxy/Alt", "Low", "Alternative HTTP web server open."),
-    8443: ("HTTPS-Alt", "Low", "Alternative HTTPS web server open."),
-}
+from app.schemas.finding import Finding
+from app.schemas.module_result import ModuleResult, score_to_status
+from .rules import (
+    COMMON_PORTS,
+    CONNECTION_TIMEOUT,
+    DEFAULT_CONFIDENCE,
+    EXPOSED_SERVICE_PENALTY,
+    MAX_WORKERS,
+    MODULE_NAME,
+    NORMAL_PORT_PENALTY,
+)
 
 
-def _check_port(host: str, port: int, timeout: float = 1.0) -> dict | None:
+def _check_port(host: str, port: int, timeout: float = CONNECTION_TIMEOUT) -> dict | None:
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
             sock.settimeout(timeout)
@@ -42,24 +33,31 @@ def _check_port(host: str, port: int, timeout: float = 1.0) -> dict | None:
     return None
 
 
-def scan_ports_module(host: str) -> dict:
+def scan_ports_module(host: str) -> ModuleResult:
     """Perform concurrent TCP port scan against common target ports."""
     target_host = host.replace("https://", "").replace("http://", "").split("/")[0].split(":")[0]
 
-    # Resolve IP address
     try:
         ip = socket.gethostbyname(target_host)
     except Exception as exc:
-        return {
-            "host": target_host,
-            "ip": None,
-            "open_ports": [],
-            "total_open": 0,
-            "error": f"Failed to resolve hostname: {str(exc)}",
-        }
+        return ModuleResult(
+            module=MODULE_NAME,
+            status="error",
+            score=50,
+            confidence=90,
+            findings=[
+                Finding(
+                    title="Port scan failed",
+                    severity="low",
+                    description=f"Failed to resolve hostname: {exc}",
+                    recommendation="Verify the hostname resolves correctly.",
+                )
+            ],
+            details={"host": target_host, "ip": None, "error": str(exc)},
+        )
 
     open_ports = []
-    with ThreadPoolExecutor(max_workers=15) as executor:
+    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
         futures = [executor.submit(_check_port, ip, port) for port in COMMON_PORTS.keys()]
         for future in futures:
             res = future.result()
@@ -67,13 +65,36 @@ def scan_ports_module(host: str) -> dict:
                 open_ports.append(res)
 
     open_ports.sort(key=lambda x: x["port"])
-    high_risk_count = sum(1 for p in open_ports if p["risk"] == "High")
+    high_risk_ports = [p for p in open_ports if p["risk"] == "High"]
 
-    return {
-        "host": target_host,
-        "ip": ip,
-        "open_ports": open_ports,
-        "total_open": len(open_ports),
-        "high_risk_ports": high_risk_count,
-        "status": "Warning" if high_risk_count > 0 else "Normal",
-    }
+    score = 100
+    findings: list[Finding] = []
+
+    for port_info in open_ports:
+        penalty = EXPOSED_SERVICE_PENALTY if port_info["risk"] == "High" else NORMAL_PORT_PENALTY
+        score -= penalty
+        findings.append(
+            Finding(
+                title=f"Open port {port_info['port']} ({port_info['service']})",
+                severity=port_info["risk"].lower(),
+                description=port_info["note"],
+                recommendation="Close or firewall unused ports; restrict exposed services.",
+            )
+        )
+
+    score = max(0, score)
+
+    return ModuleResult(
+        module=MODULE_NAME,
+        status=score_to_status(score),
+        score=score,
+        confidence=DEFAULT_CONFIDENCE,
+        findings=findings,
+        details={
+            "host": target_host,
+            "ip": ip,
+            "open_ports": open_ports,
+            "total_open": len(open_ports),
+            "high_risk_ports": len(high_risk_ports),
+        },
+    )

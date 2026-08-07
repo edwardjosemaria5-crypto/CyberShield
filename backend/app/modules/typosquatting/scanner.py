@@ -1,43 +1,109 @@
-from concurrent.futures import ThreadPoolExecutor
-import socket
+"""Brand similarity retrieval for the typosquatting engine.
 
-from app.modules.typosquatting.homoglyphs import find_homoglyphs
-from app.modules.typosquatting.keyboard import keyboard_neighbors
-from app.modules.typosquatting.levenshtein import levenshtein_distance
+Compares the target's second-level label against a brand database and
+returns raw :class:`BrandMatch` objects. Pure computation: no network, no
+scoring. The parser selects the best match and intelligence applies rules.
+"""
+
+from app.modules.typosquatting import utils
+from app.modules.typosquatting.models import BrandMatch
+from app.modules.typosquatting.rules import SIMILARITY_LOW
 
 
-def _check_domain_active(candidate: str) -> dict | None:
-    try:
-        ip = socket.gethostbyname(candidate)
-        return {"candidate": candidate, "ip": ip, "is_active": True}
-    except Exception:
+def analyze_pair(candidate: str, term: str) -> BrandMatch | None:
+    """Analyze one candidate vs one brand term.
+
+    Returns the match with its best recognized technique, or ``None`` when
+    the strings are unrelated (below :data:`SIMILARITY_LOW`).
+    """
+    candidate = candidate.strip().lower()
+    term = term.strip().lower()
+    if not candidate or not term:
         return None
 
+    if candidate == term:
+        return BrandMatch(brand=term, similarity=100, technique="exact", distance=0, canonical_candidate=candidate)
 
-def scan_typosquatting_module(domain: str) -> dict:
-    """Generate typosquatted domain permutations and detect active squatted domains."""
-    target = domain.replace("https://", "").replace("http://", "").split("/")[0].split(":")[0]
+    raw_distance = utils.levenshtein_distance(candidate, term)
 
-    keyboard_candidates = keyboard_neighbors(target)
-    homoglyph_candidates = find_homoglyphs(target)
-    all_candidates = list(set(keyboard_candidates + homoglyph_candidates))[:12]
+    substitution_candidate = utils.canonicalize_substitutions(candidate)
+    substitution_distance = utils.levenshtein_distance(substitution_candidate, term)
 
-    active_squatters = []
-    with ThreadPoolExecutor(max_workers=8) as executor:
-        futures = [executor.submit(_check_domain_active, c) for c in all_candidates]
-        for future in futures:
-            res = future.result()
-            if res:
-                res["distance"] = levenshtein_distance(target, res["candidate"])
-                active_squatters.append(res)
+    homograph_candidate = utils.canonicalize_homographs(candidate)
+    homograph_distance = utils.levenshtein_distance(homograph_candidate, term)
 
-    risk = "High" if len(active_squatters) > 2 else "Medium" if len(active_squatters) > 0 else "Low"
+    best_distance = min(raw_distance, substitution_distance, homograph_distance)
+    similarity = _similarity(candidate, term, best_distance)
+    if similarity < SIMILARITY_LOW:
+        return None
 
-    return {
-        "domain": target,
-        "total_permutations_tested": len(all_candidates),
-        "active_squatted_domains": active_squatters,
-        "active_count": len(active_squatters),
-        "risk_level": risk,
-        "recommendation": "Monitor or preemptively register common typosquatting variations." if active_squatters else "No active typosquatting threats detected.",
-    }
+    canonical = candidate
+    technique = "similar"
+    if homograph_distance < raw_distance and utils.has_unicode(candidate):
+        technique = "homograph"
+        canonical = homograph_candidate
+        best_distance = homograph_distance
+    elif substitution_distance < raw_distance:
+        technique = "substitution"
+        canonical = substitution_candidate
+        best_distance = substitution_distance
+    elif candidate == term:
+        technique = "exact"
+    else:
+        technique = _classify_edit(candidate, term, raw_distance)
+
+    return BrandMatch(
+        brand=term,
+        similarity=_similarity(candidate, term, best_distance),
+        technique=technique,
+        distance=best_distance,
+        canonical_candidate=canonical,
+    )
+
+
+def find_brand_matches(sld: str, brand_database: dict) -> list[BrandMatch]:
+    """Compare ``sld`` against every brand name+alias; returns ranked matches."""
+    matches: list[BrandMatch] = []
+    for name, entry in brand_database.items():
+        terms = [entry["domains"][0].split(".")[0]] + list(entry.get("aliases", []))
+        for term in terms:
+            match = analyze_pair(sld, term)
+            if match is not None:
+                match.brand = name.title()
+                matches.append(match)
+                break
+    matches.sort(key=lambda m: m.similarity, reverse=True)
+    return matches
+
+
+def _similarity(candidate: str, term: str, distance: int) -> int:
+    span = max(len(candidate), len(term), 1)
+    return max(0, round(100 * (1 - distance / span)))
+
+
+def _classify_edit(candidate: str, term: str, distance: int) -> str:
+    """Name the edit operation that produced ``candidate`` from ``term``."""
+    if distance == 1 and len(candidate) == len(term):
+        for i, (a, b) in enumerate(zip(candidate, term)):
+            if a != b and utils.are_keyboard_adjacent(a, b):
+                return "keyboard"
+        return "similar"
+
+    if utils.damerau_levenshtein(candidate, term) == 1 and distance == 2:
+        return "transposition"
+
+    if len(candidate) == len(term) + 1 and _is_repeated_char(candidate, term):
+        return "repeated"
+    if len(candidate) == len(term) + 1:
+        return "extra"
+    if len(candidate) == len(term) - 1:
+        return "missing"
+    return "similar"
+
+
+def _is_repeated_char(candidate: str, term: str) -> bool:
+    """True when candidate equals term with a single character doubled."""
+    for i in range(len(term)):
+        if candidate == term[: i + 1] + term[i] + term[i + 1 :]:
+            return True
+    return False

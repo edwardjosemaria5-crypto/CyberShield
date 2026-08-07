@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import Navbar from '../components/Navbar';
 import SearchBar from '../components/SearchBar';
 import ScoreGauge from '../components/ScoreGauge';
@@ -14,6 +14,8 @@ export default function HomePage() {
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  const moduleByName = (name) => result?.modules?.find((m) => m.module === name);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -39,17 +41,17 @@ export default function HomePage() {
         </HeaderCard>
 
         <div style={{ display: 'grid', gap: '1rem', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', marginTop: '1rem' }}>
-          <ScoreGauge score={result?.security_score ?? 0} />
-          <RiskSummary title="Risk Level" description={result ? `${result.overall_risk} risk detected.` : 'Enter a target to start scanning.'} />
-          <ModuleCard title="DNS" value={result?.modules?.dns?.ip_address ? 'Resolved' : 'Pending'} />
-          <ModuleCard title="WHOIS" value={result?.modules?.whois?.registrar ? 'Active' : 'Pending'} />
+          <ScoreGauge score={result?.trust_score ?? 0} />
+          <RiskSummary title="Risk Level" description={result ? `${result.verdict} risk detected.` : 'Enter a target to start scanning.'} />
+          <ModuleCard title="DNS" value={moduleByName('dns')?.details?.ip_address ? 'Resolved' : 'Pending'} />
+          <ModuleCard title="WHOIS" value={moduleByName('whois')?.details?.registrar ? 'Active' : 'Pending'} />
         </div>
 
         {loading && <p style={{ marginTop: '1rem' }}>Scanning…</p>}
         {error && <p style={{ marginTop: '1rem', color: '#b91c1c' }}>{error}</p>}
         {result && (
           <div style={{ marginTop: '1.5rem' }}>
-            <RecommendationCard text={`Target ${result.target} scored ${result.security_score} with ${result.overall_risk.toLowerCase()} risk.`} />
+            <RecommendationCard text={`Target ${result.target} scored ${result.trust_score} with ${result.verdict.toLowerCase()} risk.`} />
           </div>
         )}
       </main>

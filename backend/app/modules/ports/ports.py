@@ -1,1 +1,3 @@
-COMMON_PORTS = [21, 22, 23, 25, 53, 80, 110, 143, 443, 445, 3306, 3389]
+from .rules import COMMON_PORTS
+
+__all__ = ["COMMON_PORTS"]

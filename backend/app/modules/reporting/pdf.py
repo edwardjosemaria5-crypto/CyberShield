@@ -54,6 +54,7 @@ def generate_pdf_report(data: dict) -> bytes:
         ("reputation", "Domain Reputation"),
         ("threatintel", "Threat Intelligence"),
         ("typosquatting", "Typosquatting Risk"),
+        ("brand_detection", "Brand Impersonation"),
         ("whois", "WHOIS Registration"),
     ]:
         mod = modules.get(key, {})

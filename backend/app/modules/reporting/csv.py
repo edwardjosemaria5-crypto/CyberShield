@@ -37,8 +37,13 @@ def generate_csv_report(data: dict) -> str:
     threat_mod = modules.get("threatintel", {})
     writer.writerow(["Threat Intel", "Threat Level", threat_mod.get("threat_level", "N/A"), f"Score: {threat_mod.get('threat_intel_score', 0)}"])
 
-    # Typosquatting
+    # Typosquatting / Brand Impersonation
     typo_mod = modules.get("typosquatting", {})
-    writer.writerow(["Typosquatting", "Active Squatted Domains", typo_mod.get("active_count", 0), typo_mod.get("risk_level", "N/A")])
+    best = typo_mod.get("best_match") or {}
+    typo_value = f"{best.get('brand', 'None')} ({best.get('similarity', 0)}%)" if best else "None"
+    writer.writerow(["Typosquatting", "Best Brand Match", typo_value, f"Matches: {len(typo_mod.get('matches', []))}"])
+
+    brand_mod = modules.get("brand_detection", {})
+    writer.writerow(["Brand Detection", "Signals", len(brand_mod.get("signals", [])), f"Terms: {', '.join(brand_mod.get('suspicious_terms', [])) or 'None'}"])
 
     return output.getvalue()

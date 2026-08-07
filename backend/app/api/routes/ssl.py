@@ -1,10 +1,11 @@
 from fastapi import APIRouter
 
-from app.services.endpoint_service import ssl_root_response
+from app.modules.ssl.service import run_ssl_check
+from app.schemas.module_result import ModuleResult
 
 router = APIRouter(prefix="/ssl", tags=["ssl"])
 
 
-@router.get("/")
-def ssl_root():
-    return ssl_root_response()
+@router.get("/{domain}")
+def ssl_lookup(domain: str) -> ModuleResult:
+    return run_ssl_check(domain)
