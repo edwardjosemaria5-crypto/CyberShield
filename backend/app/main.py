@@ -12,6 +12,7 @@ from app.api.routes import (
     dns,
     headers,
     health,
+    history,
     ports,
     reputation,
     scan,
@@ -31,6 +32,14 @@ app = FastAPI(
     description="Professional Cybersecurity Assessment Platform",
     version="2.0.0",
 )
+
+# ==========================================================
+# Initialize storage (idempotent; keeps existing data)
+# ==========================================================
+
+from app.database.connection import init_db  # noqa: E402
+
+init_db()
 
 # ==========================================================
 # Configure CORS
@@ -54,6 +63,7 @@ app.add_middleware(
 app.include_router(health.router)
 app.include_router(url_analysis.router)
 app.include_router(scan.router)
+app.include_router(history.router)
 app.include_router(dns.router)
 app.include_router(headers.router)
 app.include_router(whois.router)
