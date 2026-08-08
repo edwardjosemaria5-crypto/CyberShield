@@ -1,0 +1,46 @@
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-5);
+  border-radius: var(--radius-md);
+  border: 1px solid;
+  background: var(--color-surface);
+}
+
+.label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  opacity: 0.8;
+}
+
+.verdict {
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.issues {
+  font-size: 13px;
+  opacity: 0.85;
+}
+
+.success {
+  border-color: rgba(52, 211, 153, 0.45);
+  color: var(--color-verdict-trusted);
+}
+
+.warning {
+  border-color: rgba(251, 191, 36, 0.45);
+  color: var(--color-verdict-medium);
+}
+
+.danger {
+  border-color: rgba(248, 113, 113, 0.45);
+  color: var(--color-verdict-critical);
+}
+
+.neutral {
+  border-color: var(--color-border-strong);
+  color: var(--color-text-muted);
+}

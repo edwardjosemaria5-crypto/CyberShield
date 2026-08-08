@@ -1,0 +1,125 @@
+.gauge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  text-align: center;
+  width: 100%;
+}
+
+.svg {
+  width: 200px;
+  height: 200px;
+  transform: rotate(-90deg);
+  max-width: 100%;
+}
+
+.track {
+  fill: none;
+  stroke: var(--color-surface-2);
+  stroke-width: 9;
+}
+
+.tick {
+  stroke: var(--color-border-strong);
+  stroke-width: 1.5;
+}
+
+.progress {
+  fill: none;
+  stroke-width: 9;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.9s ease;
+}
+
+.value {
+  font-size: 38px;
+  font-weight: 800;
+  fill: var(--color-text);
+  transform: rotate(90deg);
+  transform-origin: 80px 80px;
+}
+
+.max {
+  font-size: 14px;
+  fill: var(--color-text-faint);
+  transform: rotate(90deg);
+  transform-origin: 80px 80px;
+}
+
+.label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--color-text-muted);
+  font-weight: 700;
+}
+
+.verdict {
+  font-size: 13px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding: var(--space-1) var(--space-3);
+  border-radius: 999px;
+  border: 1px solid;
+  user-select: none;
+}
+
+.good {
+  color: var(--color-success);
+  border-color: rgba(52, 211, 153, 0.4);
+  background: rgba(52, 211, 153, 0.08);
+}
+
+.medium {
+  color: var(--color-warning);
+  border-color: rgba(251, 191, 36, 0.4);
+  background: rgba(251, 191, 36, 0.08);
+}
+
+.bad {
+  color: var(--color-danger);
+  border-color: rgba(248, 113, 113, 0.4);
+  background: rgba(248, 113, 113, 0.08);
+}
+
+.confidenceWrap {
+  width: 100%;
+  max-width: 220px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.confidenceRow {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+}
+
+.confidenceLabel {
+  text-transform: uppercase;
+  color: var(--color-text-faint);
+}
+
+.confidenceValue {
+  color: var(--color-text-muted);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.confidenceTrack {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--color-surface-2);
+  overflow: hidden;
+}
+
+.confidenceFill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--color-info), var(--color-primary));
+  transition: width 0.6s ease;
+}

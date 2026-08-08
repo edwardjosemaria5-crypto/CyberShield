@@ -1,0 +1,88 @@
+.page {
+  max-width: 860px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.hero {
+  display: flex;
+  justify-content: center;
+}
+
+.heroCard {
+  border: 1px solid var(--color-border-strong);
+  box-shadow: var(--shadow-md);
+  width: 100%;
+  text-align: center;
+}
+
+.overline {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--color-primary);
+  font-weight: 700;
+}
+
+.title {
+  margin-top: var(--space-3);
+  font-size: 42px;
+  font-weight: 800;
+  background: linear-gradient(90deg, var(--color-primary), var(--color-info));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.lead {
+  margin: var(--space-4) auto 0;
+  max-width: 560px;
+  color: var(--color-text-muted);
+  font-size: 16px;
+}
+
+.scan {
+  margin-top: var(--space-6);
+  display: flex;
+  justify-content: center;
+}
+
+.alert {
+  margin-top: var(--space-4);
+  text-align: left;
+}
+
+.progressWrap {
+  margin-top: var(--space-5);
+  text-align: left;
+}
+
+.focus {
+  margin-top: var(--space-6);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-5) var(--space-6);
+}
+
+.focus ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.focus li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: 14px;
+  color: var(--color-text-muted);
+}
+
+.check {
+  color: var(--color-success);
+  font-weight: 800;
+}
