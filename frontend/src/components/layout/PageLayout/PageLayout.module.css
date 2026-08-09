@@ -4,6 +4,22 @@
   flex-direction: column;
 }
 
+.skipLink {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 100;
+  background: var(--color-primary);
+  color: #04121f;
+  font-weight: 700;
+  padding: var(--space-2) var(--space-4);
+  border-radius: 0 0 var(--radius-sm) 0;
+}
+
+.skipLink:focus {
+  left: 0;
+}
+
 .main {
   flex: 1;
   display: flex;

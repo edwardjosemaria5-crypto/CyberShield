@@ -25,36 +25,6 @@
   font-size: 13px;
 }
 
-.emptyCard {
-  padding: var(--space-8) var(--space-5);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-3);
-  text-align: center;
-}
-
-.emptyIcon {
-  font-size: 34px;
-  color: var(--color-border-strong);
-}
-
-.emptyTitle {
-  font-size: 18px;
-  font-weight: 800;
-}
-
-.emptyText {
-  max-width: 420px;
-  color: var(--color-text-muted);
-  font-size: 14px;
-  line-height: 1.6;
-}
-
-.emptyAction {
-  margin-top: var(--space-2);
-}
-
 .stateWrap {
   display: flex;
   flex-direction: column;
@@ -65,8 +35,10 @@
   text-align: center;
 }
 
-.stateActions {
-  margin-top: var(--space-2);
+.loadMore {
+  display: flex;
+  justify-content: center;
+  margin-top: var(--space-4);
 }
 
 @media (max-width: 640px) {

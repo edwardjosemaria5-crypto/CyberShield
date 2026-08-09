@@ -1,5 +1,6 @@
 import { useId, useState } from 'react';
 import Badge from '../../common/Badge/Badge';
+import FindingDetail from '../../common/FindingDetail/FindingDetail';
 import {
   moduleStatusTone,
   moduleTitle,
@@ -12,13 +13,14 @@ import {
 } from '../../../utils/formatters';
 import styles from './ModuleCard.module.css';
 
-export default function ModuleCard({ module: mod }) {
+export default function ModuleCard({ module: mod, renderer = null }) {
   const [open, setOpen] = useState(false);
   const panelId = useId();
   const color = scoreColor(mod.score);
   const findings = mod.findings ?? [];
   const label = healthLabel(mod.score);
   const summary = moduleSummary(mod.module, mod.details, findings) ?? 'No summary available.';
+  const DetailsBody = renderer;
 
   return (
     <article className={styles.card}>
@@ -65,15 +67,26 @@ export default function ModuleCard({ module: mod }) {
 
       {open && (
         <div id={panelId} className={styles.details}>
-          <ul className={styles.moduleFindings}>
-            {findings.length === 0 && <li className={styles.noFindings}>No findings in this module.</li>}
-            {findings.map((finding, index) => (
-              <li key={`${finding.title}-${index}`} className={styles.moduleFinding}>
-                <Badge tone={severityTone(finding.severity)}>{severityLabel(finding.severity)}</Badge>
-                <span>{finding.title}</span>
-              </li>
-            ))}
-          </ul>
+          {DetailsBody ? (
+            <DetailsBody module={mod} />
+          ) : findings.length === 0 ? (
+            <p className={styles.noFindings}>No findings in this module.</p>
+          ) : (
+            <ul className={styles.moduleFindings}>
+              {findings.map((finding, index) => (
+                <li
+                  key={`${finding.title}-${index}`}
+                  className={[styles.moduleFinding, styles.moduleFindingOpen].join(' ')}
+                >
+                  <span className={styles.moduleFindingHead}>
+                    <Badge tone={severityTone(finding.severity)}>{severityLabel(finding.severity)}</Badge>
+                    <span className={styles.moduleFindingTitle}>{finding.title}</span>
+                  </span>
+                  <FindingDetail finding={finding} />
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       )}
     </article>

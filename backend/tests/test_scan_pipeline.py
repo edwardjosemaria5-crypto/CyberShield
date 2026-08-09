@@ -5,7 +5,7 @@ import time
 
 from app.core.scan_ids import generate_scan_id
 from app.modules.base import BaseModule, TARGET_DOMAIN, TARGET_URL
-from app.modules.registry import MODULE_REGISTRY, get_module_registry
+from app.modules.registry import MODULE_REGISTRY, URLAnalysisScanner, get_module_registry
 from app.risk_engine.engine import calculate_risk_score, severity_summary
 from app.risk_engine.scorer import compute_confidence
 from app.schemas.finding import Finding
@@ -50,7 +50,7 @@ def test_scan_id_format():
     parts = scan_id.split("-")
     assert parts[0] == "CS"
     assert len(parts[1]) == 4 and parts[1].isdigit()
-    assert len(parts[2]) == 8
+    assert len(parts[2]) == 12
     assert scan_id == scan_id.upper()
 
 
@@ -150,6 +150,23 @@ def test_scan_manager_invalid_target_runs_structural_scan_only():
     assert [m.module for m in response.modules] == ["url_analysis"]
     assert response.domain == ""
     assert response.scan_id.startswith("CS-")
+
+
+def test_scan_manager_garbage_target_gets_zero_aggregate_confidence():
+    response = make_manager([URLAnalysisScanner()]).run("/no-host")
+
+    assert [m.module for m in response.modules] == ["url_analysis"]
+    assert response.modules[0].confidence == 0
+    assert response.confidence == 0
+    assert "Invalid URL" in [f.title for f in response.findings]
+
+
+def test_scan_manager_valid_target_keeps_full_confidence():
+    response = make_manager([URLAnalysisScanner()]).run("example.com")
+
+    assert response.modules[0].confidence == 100
+    assert response.confidence == 100
+    assert response.modules[0].score == 100
 
 
 def test_scan_manager_arun_matches_run():

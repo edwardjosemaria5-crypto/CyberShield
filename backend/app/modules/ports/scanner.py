@@ -3,6 +3,7 @@ import socket
 
 from app.schemas.finding import Finding
 from app.schemas.module_result import ModuleResult, score_to_status
+from app.utils.networking import validate_public_host
 from .rules import (
     COMMON_PORTS,
     CONNECTION_TIMEOUT,
@@ -36,6 +37,24 @@ def _check_port(host: str, port: int, timeout: float = CONNECTION_TIMEOUT) -> di
 def scan_ports_module(host: str) -> ModuleResult:
     """Perform concurrent TCP port scan against common target ports."""
     target_host = host.replace("https://", "").replace("http://", "").split("/")[0].split(":")[0]
+
+    blocked = validate_public_host(target_host)
+    if blocked:
+        return ModuleResult(
+            module=MODULE_NAME,
+            status="error",
+            score=50,
+            confidence=90,
+            findings=[
+                Finding(
+                    title="Port scan refused",
+                    severity="low",
+                    description=blocked,
+                    recommendation="Scan a public hostname only.",
+                )
+            ],
+            details={"host": target_host, "ip": None, "error": blocked},
+        )
 
     try:
         ip = socket.gethostbyname(target_host)

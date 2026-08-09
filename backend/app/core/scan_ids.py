@@ -7,9 +7,9 @@ from datetime import datetime, timezone
 def generate_scan_id() -> str:
     """Return a unique, human-readable scan identifier.
 
-    Format: ``CS-YYYY-XXXXXXXX`` (e.g. ``CS-2026-8F4A2C91``). The suffix
-    draws 32 bits of cryptographically strong randomness, so collisions are
-    negligible even at high scan volumes.
+    Format: ``CS-YYYY-XXXXXXXXXXXX`` (e.g. ``CS-2026-8F4A2C910B7D``). The
+    suffix draws 48 bits of cryptographically strong randomness, making
+    collisions effectively impossible at any realistic scan volume.
     """
     year = datetime.now(timezone.utc).year
-    return f"CS-{year}-{secrets.token_hex(4).upper()}"
+    return f"CS-{year}-{secrets.token_hex(6).upper()}"

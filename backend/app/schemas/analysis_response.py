@@ -1,5 +1,6 @@
 from pydantic import BaseModel, Field
 
+from app.schemas.ai_explanation import AIExplanation
 from app.schemas.finding import Finding
 from app.schemas.module_result import ModuleResult
 from app.schemas.summary import SeveritySummary
@@ -13,9 +14,14 @@ class AnalysisResponse(BaseModel):
     by the risk engine; ``scan_id`` and the timestamps are stamped by the
     ScanManager. ``modules`` preserves registry order regardless of the
     runtime completion order of the concurrent scanners.
+
+    ``ai_explanation`` is a nullable, read-only sidecar: when present it is
+    AI-derived presentation data only, and never influences any scoring
+    field above. Absence (``null``) is a normal state (disabled/unavailable
+    AI) and the deterministic analysis remains fully valid.
     """
 
-    scan_id: str = Field(default="", description="Unique scan identifier (CS-YYYY-XXXXXXXX).")
+    scan_id: str = Field(default="", description="Unique scan identifier (CS-YYYY-XXXXXXXXXXXX).")
     target: str
     normalized_url: str
     domain: str
@@ -27,3 +33,7 @@ class AnalysisResponse(BaseModel):
     summary: SeveritySummary = Field(default_factory=SeveritySummary)
     modules: list[ModuleResult] = Field(default_factory=list)
     findings: list[Finding] = Field(default_factory=list)
+    ai_explanation: AIExplanation | None = Field(
+        default=None,
+        description="Optional AI-generated explanation; never affects scoring.",
+    )

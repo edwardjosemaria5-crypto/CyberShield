@@ -8,6 +8,11 @@ venv/
 env/
 *.log
 
+# Databases (runtime data)
+*.db
+*.sqlite
+*.sqlite3
+
 # Node
 node_modules/
 dist/

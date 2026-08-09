@@ -3,13 +3,16 @@ import styles from './ScanProgress.module.css';
 
 const STEPS = [
   'URL Analysis',
-  'DNS Intelligence',
-  'WHOIS Intelligence',
+  'Reputation',
+  'WHOIS',
+  'DNS',
   'SSL/TLS',
   'Security Headers',
-  'Reputation',
+  'Typosquatting',
   'Brand Detection',
-  'Risk Analysis',
+  'Threat Intelligence',
+  'Blacklist',
+  'Phishing Detection',
 ];
 
 const STEP_INTERVAL_MS = 420;

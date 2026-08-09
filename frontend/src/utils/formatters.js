@@ -24,6 +24,35 @@ export const VERDICT_TONES = {
   Critical: 'danger',
 };
 
+// Central display-naming for threat-intelligence provider slugs. The
+// backend contract intentionally uses stable slugs (e.g.
+// "google-safe-browsing"); end users must never see them.
+export const PROVIDER_DISPLAY_NAMES = {
+  'google-safe-browsing': 'Google Safe Browsing',
+  'virus_total': 'VirusTotal',
+};
+
+export function providerDisplayName(slug) {
+  if (!slug) return 'Unknown provider';
+  if (PROVIDER_DISPLAY_NAMES[slug]) return PROVIDER_DISPLAY_NAMES[slug];
+  // Safe fallback for a future provider: title-case the slug ("provider-b"
+  // -> "Provider B").
+  return slug
+    .replace(/[-_]/g, ' ')
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+// Derived provider status: visual + textual state from the normalized
+// ThreatIntelSignals fields the backend already provides.
+export function providerStatus(signal) {
+  if (!signal || signal.status !== 'available') {
+    return { label: 'Unavailable', tone: 'neutral', icon: '✕' };
+  }
+  if (signal.malicious) return { label: 'Threat', tone: 'danger', icon: '⚠' };
+  if (signal.suspicious) return { label: 'Suspicious', tone: 'warning', icon: '⚠' };
+  return { label: 'Clean', tone: 'success', icon: '✓' };
+}
+
 export function severityTone(severity) {
   return SEVERITY_TONES[severity] ?? 'neutral';
 }
@@ -191,6 +220,21 @@ function summarizeDetails(moduleKey, details) {
           ? 'Similar to a known brand'
           : 'No impersonation signals';
     case 'threatintel': {
+      // Prefer the provider correlation summary when present; fall back to
+      // the local-heuristic view for legacy/historical records.
+      const correlation = details.threat_intel_correlation;
+      if (correlation && typeof correlation === 'object') {
+        const available = correlation.available_count ?? 0;
+        const flagged = (correlation.malicious_count ?? 0) + (correlation.suspicious_count ?? 0);
+        if (available > 0) {
+          if (correlation.conflict) {
+            return `${flagged} of ${available} flagged, conflicting results`;
+          }
+          return flagged > 0
+            ? `${flagged} of ${available} provider(s) flagged a threat`
+            : `${available} provider(s) reported none flagged`;
+        }
+      }
       if (details.phishing_analysis === undefined && details.threat_feed_status === undefined) return null;
       const phishing =
         typeof details.phishing_analysis === 'object' && details.phishing_analysis !== null

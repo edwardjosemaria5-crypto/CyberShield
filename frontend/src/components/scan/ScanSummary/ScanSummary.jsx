@@ -1,15 +1,6 @@
 import Badge from '../../common/Badge/Badge';
-import { formatTimestamp } from '../../../utils/formatters';
+import { formatTimestamp, VERDICT_TONES } from '../../../utils/formatters';
 import styles from './ScanSummary.module.css';
-
-const VERDICT_TONES = {
-  Trusted: 'success',
-  'Low Risk': 'success',
-  'Moderate Risk': 'warning',
-  Suspicious: 'warning',
-  'High Risk': 'danger',
-  Critical: 'danger',
-};
 
 export default function ScanSummary({ result, className = '' }) {
   if (!result) return null;

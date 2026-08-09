@@ -10,12 +10,19 @@ export default function TrustScore({ score = 0, confidence, verdict }) {
   const dashOffset = CIRCUMFERENCE * (1 - clamped / 100);
   const color = scoreColor(clamped);
   const gradientId = useId();
-
+  const tone = scoreColorTone(clamped);
   const ticks = Array.from({ length: 12 }, (_, i) => (i * 100) / 11);
 
   return (
     <div className={styles.gauge}>
-      <svg viewBox="0 0 160 160" className={styles.svg} role="img" aria-label={`Trust score ${clamped} out of 100`}>
+      <svg
+        viewBox="0 0 160 160"
+        className={styles.svg}
+        role="img"
+        aria-label={`Trust score ${clamped} out of 100${verdict ? `, verdict ${verdict}` : ''}${
+          typeof confidence === 'number' ? `, confidence ${confidence} percent` : ''
+        }`}
+      >
         <defs>
           <linearGradient id={gradientId} x1="0" y1="0" x2="1" y2="1">
             <stop offset="0%" stopColor={color} />
@@ -54,7 +61,10 @@ export default function TrustScore({ score = 0, confidence, verdict }) {
       <p className={styles.label}>Trust Score</p>
 
       {verdict && (
-        <span className={[styles.verdict, styles[scoreColorTone(clamped)]].join(' ')}>{verdict}</span>
+        <span className={[styles.verdict, styles[tone]].join(' ')}>
+          <span className={styles.verdictDot} aria-hidden="true" />
+          {verdict}
+        </span>
       )}
 
       {typeof confidence === 'number' && (

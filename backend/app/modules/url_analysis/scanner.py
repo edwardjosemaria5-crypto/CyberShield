@@ -54,11 +54,14 @@ class URLAnalyzer:
                     recommendation="Submit a valid HTTP or HTTPS URL with a proper domain or IP address.",
                 )
             )
+            # Confidence must be 0 for an invalid target: the analyzer could
+            # not extract any evidence, so the aggregate assessment must not
+            # present the input as confidently (maliciously) classified.
             return ModuleResult(
                 module="url_analysis",
                 status="critical" if score < 70 else "warning",
                 score=score,
-                confidence=100,
+                confidence=0,
                 findings=findings,
                 details={
                     "original_url": original_url,

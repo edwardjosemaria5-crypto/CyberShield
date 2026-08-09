@@ -61,7 +61,7 @@
 
 .overview {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
   gap: var(--space-4);
 }
 
@@ -73,7 +73,7 @@
 
 .twoCol {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(340px, 100%), 1fr));
   gap: var(--space-4);
   align-items: start;
 }
@@ -113,4 +113,17 @@
   align-items: center;
   justify-content: center;
   min-height: 320px;
+}
+
+.exportToolbar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+}
+
+.exportButtons {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
 }

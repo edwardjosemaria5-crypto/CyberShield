@@ -1,8 +1,10 @@
 import Card from '../../components/common/Card/Card';
 import Badge from '../../components/common/Badge/Badge';
+import usePageTitle from '../../hooks/usePageTitle';
 import styles from './SettingsPage.module.css';
 
 export default function SettingsPage() {
+  usePageTitle('Settings');
   return (
     <div className={styles.page}>
       <h1 className={styles.heading}>Settings</h1>

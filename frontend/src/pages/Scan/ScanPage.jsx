@@ -5,12 +5,14 @@ import Alert from '../../components/common/Alert/Alert';
 import ScanInput from '../../components/scan/ScanInput/ScanInput';
 import ScanProgress from '../../components/scan/ScanProgress/ScanProgress';
 import useScanContext from '../../hooks/useScanContext';
+import usePageTitle from '../../hooks/usePageTitle';
 import styles from './ScanPage.module.css';
 
 export default function ScanPage() {
   const navigate = useNavigate();
   const { loading, error, run } = useScanContext();
   const [activeTarget, setActiveTarget] = useState('');
+  usePageTitle('New Scan');
 
   const handleSubmit = async (target) => {
     setActiveTarget(target);

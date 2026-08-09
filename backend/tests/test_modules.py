@@ -51,8 +51,12 @@ def test_scan_headers_returns_security_summary(monkeypatch):
                 "X-Frame-Options": "DENY",
             }
             self.url = "https://example.com"
+            self.is_redirect = False
 
-    monkeypatch.setattr("app.modules.headers.scanner.requests.get", lambda url, timeout=10: DummyResponse())
+    monkeypatch.setattr(
+        "app.modules.headers.scanner.requests.get",
+        lambda url, **kwargs: DummyResponse(),
+    )
 
     result = run_headers_check("example.com")
 

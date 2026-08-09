@@ -7,10 +7,13 @@ import styles from './PageLayout.module.css';
 export default function PageLayout() {
   return (
     <div className={styles.container}>
+      <a href="#main-content" className={styles.skipLink}>
+        Skip to content
+      </a>
       <Navbar />
       <div className={styles.main}>
         <Sidebar />
-        <main className={styles.content}>
+        <main id="main-content" className={styles.content} tabIndex={-1}>
           <Outlet />
         </main>
       </div>

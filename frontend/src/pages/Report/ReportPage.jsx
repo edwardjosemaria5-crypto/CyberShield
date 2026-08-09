@@ -10,11 +10,17 @@ import OverallAssessment from '../../components/dashboard/OverallAssessment/Over
 import ModuleGrid from '../../components/dashboard/ModuleGrid/ModuleGrid';
 import FindingsList from '../../components/dashboard/FindingsList/FindingsList';
 import RecommendationPanel from '../../components/dashboard/RecommendationPanel/RecommendationPanel';
+import WhyRiskPanel from '../../components/report/WhyRiskPanel/WhyRiskPanel';
+import AiExplanationCard from '../../components/report/AiExplanationCard/AiExplanationCard';
+import ThreatIntelCard from '../../components/threatintel/ThreatIntelCard/ThreatIntelCard';
+import ExportToolbar from './ExportToolbar';
 import useScanReport from '../../hooks/useScanReport';
+import usePageTitle from '../../hooks/usePageTitle';
 import styles from './ReportPage.module.css';
 
 export default function ReportPage({ scanId }) {
   const { status, scan, error, retry, SUCCESS, NOT_FOUND, ERROR } = useScanReport(scanId);
+  usePageTitle(scan?.target ? `Report — ${scan.target}` : 'Report');
 
   if (status !== SUCCESS) {
     return (
@@ -27,12 +33,8 @@ export default function ReportPage({ scanId }) {
               been removed, or the identifier may be incorrect.
             </p>
             <div className={styles.notFoundActions}>
-              <Link to="/history">
-                <Button variant="secondary">Back to History</Button>
-              </Link>
-              <Link to="/scan">
-                <Button>New Scan</Button>
-              </Link>
+              <Button variant="secondary" to="/history">Back to History</Button>
+              <Button to="/scan">New Scan</Button>
             </div>
           </Card>
         ) : status === ERROR ? (
@@ -43,9 +45,7 @@ export default function ReportPage({ scanId }) {
               <Button variant="secondary" onClick={retry}>
                 Try Again
               </Button>
-              <Link to="/history">
-                <Button variant="secondary">Back to History</Button>
-              </Link>
+              <Button variant="secondary" to="/history">Back to History</Button>
             </div>
           </Card>
         ) : (
@@ -63,8 +63,9 @@ export default function ReportPage({ scanId }) {
     verdict,
     summary,
     modules,
-    findings,
   } = scan;
+
+  const threatIntelModule = (modules ?? []).find((mod) => mod.module === 'threatintel');
 
   return (
     <div className={styles.page}>
@@ -72,9 +73,7 @@ export default function ReportPage({ scanId }) {
         <Link to="/history" className={styles.back}>
           ← Back to history
         </Link>
-        <Link to="/scan">
-          <Button variant="secondary">New Scan</Button>
-        </Link>
+        <Button variant="secondary" to="/scan">New Scan</Button>
       </div>
 
       <header className={styles.reportHead}>
@@ -87,33 +86,55 @@ export default function ReportPage({ scanId }) {
 
       <ScanSummary result={scan} />
 
-      <OverallAssessment result={scan} />
+      <ExportToolbar scanId={scan.scan_id} />
 
+      {/* A. Target + status = header above.
+          B. Trust score: first major visual element. */}
       <div className={styles.overview}>
-        <Card className={styles.scoreCard}>
+        <Card className={styles.scoreCard} title="Trust Score" subtitle="Overall risk assessment">
           <TrustScore score={trustScore} confidence={confidence} verdict={verdict} />
         </Card>
         <RiskSummary
           verdict={verdict}
           summary={summary}
           modules={modules}
-          findings={findings}
+          findings={scan.findings}
         />
       </div>
 
-      <Card title="Module Analysis" subtitle="Per-module posture scores">
-        <ModuleGrid modules={modules} />
+      {/* C. Why this risk */}
+      <OverallAssessment result={scan} />
+      <WhyRiskPanel target={scan.target} verdict={verdict} trustScore={trustScore} modules={modules} />
+
+      {/* C.5 Optional AI explanation (sidecar only; absent when AI is off) */}
+      <AiExplanationCard explanation={scan.ai_explanation ?? null} />
+
+      {/* D. Threat intelligence */}
+      {threatIntelModule && (
+        <Card
+          title="Threat Intelligence"
+          subtitle="Aggregate assessment and per-provider evidence"
+        >
+          <ThreatIntelCard module={threatIntelModule} />
+        </Card>
+      )}
+
+      {/* E. Security modules */}
+      <Card title="Security Modules" subtitle="Per-module posture scores from the pipeline">
+        <ModuleGrid modules={modules} renderers={{ threatintel: ThreatIntelCard }} />
       </Card>
 
+      {/* F. Findings + G. Recommendations */}
       <div className={styles.twoCol}>
-        <Card title="Findings" subtitle={`${(findings ?? []).length} total`}>
-          <FindingsList findings={findings} />
+        <Card title="Findings" subtitle={`${(scan.findings ?? []).length} total`}>
+          <FindingsList findings={scan.findings} />
         </Card>
         <Card title="Recommendations" subtitle="Priority actions from the analysis">
-          <RecommendationPanel findings={findings} />
+          <RecommendationPanel findings={scan.findings} />
         </Card>
       </div>
 
+      {/* H. Timeline */}
       <Card title="Execution Timeline" subtitle="Module execution order">
         <ScanTimeline modules={modules} />
       </Card>

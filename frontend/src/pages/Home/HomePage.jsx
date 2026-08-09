@@ -5,6 +5,7 @@ import Alert from '../../components/common/Alert/Alert';
 import ScanInput from '../../components/scan/ScanInput/ScanInput';
 import ScanProgress from '../../components/scan/ScanProgress/ScanProgress';
 import useScanContext from '../../hooks/useScanContext';
+import usePageTitle from '../../hooks/usePageTitle';
 import styles from './HomePage.module.css';
 
 const FOCUS = [
@@ -18,6 +19,7 @@ export default function HomePage() {
   const navigate = useNavigate();
   const { loading, error, run } = useScanContext();
   const [activeTarget, setActiveTarget] = useState('');
+  usePageTitle(null);
 
   const handleSubmit = async (target) => {
     setActiveTarget(target);

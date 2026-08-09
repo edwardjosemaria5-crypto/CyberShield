@@ -19,3 +19,10 @@ export async function getScanReport(scanId) {
   const response = await api.get(`/history/${encodeURIComponent(scanId)}`);
   return response.data;
 }
+
+export async function exportReport(scanId, format) {
+  const response = await api.get(`/reports/${encodeURIComponent(scanId)}/${format}`, {
+    responseType: 'blob',
+  });
+  return response;
+}

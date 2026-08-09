@@ -35,7 +35,9 @@ PENALTY_EXPIRING: Final = 20
 PENALTY_MISSING_REGISTRAR: Final = 15
 PENALTY_MISSING_NAMESERVERS: Final = 20
 PENALTY_DNSSEC_DISABLED: Final = 5
-PENALTY_LOOKUP_UNAVAILABLE: Final = 30
+#: Failure to obtain evidence is NOT evidence of maliciousness: an
+#: unavailable lookup carries no penalty and only an informational finding.
+PENALTY_LOOKUP_UNAVAILABLE: Final = 0
 
 
 @dataclass(frozen=True)
@@ -92,7 +94,7 @@ DNSSEC_DISABLED_RULE = Rule(
 
 LOOKUP_UNAVAILABLE_RULE = Rule(
     title="WHOIS Lookup Unavailable",
-    severity="medium",
+    severity="info",
     recommendation="Retry the lookup or check registry availability.",
     penalty=PENALTY_LOOKUP_UNAVAILABLE,
 )

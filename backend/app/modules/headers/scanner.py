@@ -2,6 +2,7 @@ import requests
 
 from app.schemas.finding import Finding
 from app.schemas.module_result import ModuleResult, score_to_status
+from app.utils.networking import validate_public_host
 from .rules import (
     DEFAULT_CONFIDENCE,
     HEADER_DEFINITIONS,
@@ -11,11 +12,34 @@ from .rules import (
 )
 
 
+class BlockedTargetError(requests.RequestException):
+    """Raised when a target is refused by the outbound safety guard."""
+
+
+def _follow_redirects_safely(initial_url: str, timeout: int = 10, max_hops: int = 4) -> "requests.Response":
+    """Fetch a URL following at most ``max_hops`` redirects, validating that
+    every hop targets a public host. A hop toward a private/reserved address
+    aborts the request instead of following it."""
+    hop_url = initial_url
+    for _ in range(max_hops):
+        blocked = validate_public_host(hop_url)
+        if blocked:
+            raise BlockedTargetError(blocked)
+        response = requests.get(hop_url, timeout=timeout, allow_redirects=False)
+        if response.is_redirect and "location" in response.headers:
+            hop_url = requests.utils.requote_uri(
+                requests.compat.urljoin(hop_url, response.headers["location"])
+            )
+            continue
+        return response
+    raise requests.TooManyRedirects("Too many redirects")
+
+
 def scan_headers_module(domain: str) -> ModuleResult:
     """Scan a website for the existing set of HTTP security headers."""
     url = domain if domain.startswith(("http://", "https://")) else f"https://{domain}"
     try:
-        response = requests.get(url, timeout=10)
+        response = _follow_redirects_safely(url)
     except requests.RequestException as exc:
         return ModuleResult(
             module=MODULE_NAME,

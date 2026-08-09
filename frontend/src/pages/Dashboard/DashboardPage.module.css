@@ -34,7 +34,7 @@
 
 .overview {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
   gap: var(--space-4);
 }
 
@@ -46,7 +46,7 @@
 
 .twoCol {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(340px, 100%), 1fr));
   gap: var(--space-4);
   align-items: start;
 }
@@ -62,9 +62,15 @@
   text-align: center;
 }
 
-.empty,
-.error {
-  color: var(--color-text-muted);
+.stateWrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.fallbackLink {
+  margin-top: var(--space-2);
 }
 
 @media (max-width: 640px) {

@@ -1,7 +1,5 @@
-import { Link } from 'react-router-dom';
 import Button from '../../components/common/Button/Button';
 import Card from '../../components/common/Card/Card';
-import Loader from '../../components/common/Loader/Loader';
 import ScanSummary from '../../components/scan/ScanSummary/ScanSummary';
 import ScanTimeline from '../../components/scan/ScanTimeline/ScanTimeline';
 import TrustScore from '../../components/dashboard/TrustScore/TrustScore';
@@ -10,38 +8,47 @@ import OverallAssessment from '../../components/dashboard/OverallAssessment/Over
 import ModuleGrid from '../../components/dashboard/ModuleGrid/ModuleGrid';
 import FindingsList from '../../components/dashboard/FindingsList/FindingsList';
 import RecommendationPanel from '../../components/dashboard/RecommendationPanel/RecommendationPanel';
+import LoadingState from '../../components/common/StateViews/LoadingState';
+import ErrorState from '../../components/common/StateViews/ErrorState';
+import EmptyState from '../../components/common/StateViews/EmptyState';
+import ThreatIntelCard from '../../components/threatintel/ThreatIntelCard/ThreatIntelCard';
 import useScanContext from '../../hooks/useScanContext';
+import usePageTitle from '../../hooks/usePageTitle';
 import styles from './DashboardPage.module.css';
 
 export default function DashboardPage() {
   const { result, loading, error } = useScanContext();
+  usePageTitle('Scan Dashboard');
 
   if (loading) {
     return (
-      <div className={styles.center}>
-        <Loader size="lg" label="Running the intelligence pipeline…" />
+      <div className={styles.stateWrap}>
+        <LoadingState label="Running the intelligence pipeline…" />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className={styles.center}>
-        <p className={styles.error}>Scan failed: {error}</p>
-        <Link to="/scan">
-          <Button variant="secondary">Try Again</Button>
-        </Link>
+      <div className={styles.stateWrap}>
+        <ErrorState title="Scan failed" message={error} />
+        <div className={styles.fallbackLink}>
+          <Button variant="secondary" to="/scan">Try Again</Button>
+        </div>
       </div>
     );
   }
 
   if (!result) {
     return (
-      <div className={styles.center}>
-        <p className={styles.empty}>No scan results yet.</p>
-        <Link to="/scan">
-          <Button size="lg">Start a Scan</Button>
-        </Link>
+      <div className={styles.stateWrap}>
+        <EmptyState
+          title="No scan results yet"
+          message="Run your first analysis to see the trust score, findings and risk breakdown."
+          action={
+            <Button size="lg" to="/scan">Start a Scan</Button>
+          }
+        />
       </div>
     );
   }
@@ -63,12 +70,8 @@ export default function DashboardPage() {
           <p className={styles.target}>{result.target}</p>
         </div>
         <div className={styles.actions}>
-          <Link to={`/report/${result.scan_id}`}>
-            <Button>View Full Report</Button>
-          </Link>
-          <Link to="/scan">
-            <Button variant="secondary">New Scan</Button>
-          </Link>
+          <Button to={`/report/${result.scan_id}`}>View Full Report</Button>
+          <Button variant="secondary" to="/scan">New Scan</Button>
         </div>
       </div>
 
@@ -89,7 +92,7 @@ export default function DashboardPage() {
       </div>
 
       <Card title="Module Analysis" subtitle="Per-module posture scores from the pipeline">
-        <ModuleGrid modules={modules} />
+        <ModuleGrid modules={modules} renderers={{ threatintel: ThreatIntelCard }} />
       </Card>
 
       <div className={styles.twoCol}>

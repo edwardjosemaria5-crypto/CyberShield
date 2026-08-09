@@ -6,6 +6,8 @@ Main FastAPI Application
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.core.config import BROWSER_CORS_ORIGINS
+
 # Import API routes
 from app.api.routes import (
     brand_detection,
@@ -14,6 +16,7 @@ from app.api.routes import (
     health,
     history,
     ports,
+    reports,
     reputation,
     scan,
     ssl,
@@ -47,10 +50,7 @@ init_db()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-    ],
+    allow_origins=BROWSER_CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -64,6 +64,7 @@ app.include_router(health.router)
 app.include_router(url_analysis.router)
 app.include_router(scan.router)
 app.include_router(history.router)
+app.include_router(reports.router)
 app.include_router(dns.router)
 app.include_router(headers.router)
 app.include_router(whois.router)

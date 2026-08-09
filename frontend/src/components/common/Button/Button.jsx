@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import styles from './Button.module.css';
 
 const VARIANTS = {
@@ -13,6 +14,13 @@ const SIZES = {
   lg: styles.lg,
 };
 
+/**
+ * Accessible button or link-button.
+ *
+ * When `to` is provided the component renders a styled <Link> instead of a
+ * <button>, so callers never nest interactive elements (<a><button>) — the
+ * original cause of double tab-focus and invalid HTML.
+ */
 export default function Button({
   children,
   variant = 'primary',
@@ -20,13 +28,24 @@ export default function Button({
   type = 'button',
   disabled = false,
   className = '',
+  to,
   ...rest
 }) {
+  const classes = [styles.base, VARIANTS[variant], SIZES[size], className].join(' ');
+
+  if (to) {
+    return (
+      <Link to={to} className={classes} {...rest}>
+        {children}
+      </Link>
+    );
+  }
+
   return (
     <button
       type={type}
       disabled={disabled}
-      className={[styles.base, VARIANTS[variant], SIZES[size], className].join(' ')}
+      className={classes}
       {...rest}
     >
       {children}
