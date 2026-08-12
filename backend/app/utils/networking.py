@@ -45,12 +45,19 @@ def _is_private_address(address: _BaseAddress) -> bool:
     )
 
 
-def _parse_host(host: str) -> str:
-    """Strip scheme, port and IPv6 brackets from a raw host string."""
+def parse_host(host: str) -> str:
+    """Extract the destination hostname from a raw host string.
+
+    Strips scheme, path, URL userinfo (``user:pass@``), port and IPv6
+    brackets. Userinfo is discarded so it can never be mistaken for the
+    destination host: ``http://user@127.0.0.1/`` yields ``127.0.0.1``.
+    """
     raw = host or ""
     if raw.startswith(("https://", "http://")):
         raw = raw.split("://", 1)[1]
     raw = raw.split("/", 1)[0].strip().lower()
+    if "@" in raw:
+        raw = raw.rsplit("@", 1)[1]
     if raw.startswith("["):
         raw = raw.split("]", 1)[0].lstrip("[")
     else:
@@ -67,7 +74,7 @@ def validate_public_host(host: str) -> str | None:
     Returns ``None`` when the host is public and reachable, or a
     human-readable reason string when it must be refused. Never raises.
     """
-    host = _parse_host(host)
+    host = parse_host(host)
     if not host:
         return "Target has no host."
     if host in _RESERVED_HOSTNAMES or host.endswith(".localhost") or host.endswith(".local"):

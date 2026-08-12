@@ -6,7 +6,7 @@ const NAV_ITEMS = [
   { to: '/scan', label: 'Scan', icon: '⇄' },
   { to: '/dashboard', label: 'Dashboard', icon: '▣' },
   { to: '/history', label: 'History', icon: '▤' },
-  { to: '/settings', label: 'Settings', icon: '⚙' },
+  { to: '/settings', label: 'About', icon: 'ℹ' },
 ];
 
 export default function Sidebar() {

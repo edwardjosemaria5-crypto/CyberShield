@@ -186,6 +186,19 @@ def test_network_error_is_unavailable():
     assert signals.reason == "network"
 
 
+# -------------------------------------------------------------- bad payloads
+
+@pytest.mark.parametrize("payload", [[], "not-an-object", 42])
+def test_non_object_payload_is_bad_response(payload):
+    adapter = make_adapter(lambda request: json_response(payload))
+
+    signals = adapter.lookup("example.com")
+
+    assert signals.status == "unavailable"
+    assert signals.reason == "bad_response"
+    assert signals.malicious is False
+
+
 # ------------------------------------------------------------------ config
 
 def test_missing_api_key_is_unavailable():

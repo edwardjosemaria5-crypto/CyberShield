@@ -13,10 +13,15 @@ import socket
 import ssl
 
 from app.modules.ssl.models import TlsHandshake
+from app.utils.networking import validate_public_host
 
 
 class TlsUnavailableError(RuntimeError):
     """Raised when no TLS service can be reached for a hostname."""
+
+
+class BlockedTargetError(RuntimeError):
+    """Raised when the target host is refused by the outbound safety guard."""
 
 
 def _hostname(domain: str) -> str:
@@ -26,11 +31,21 @@ def _hostname(domain: str) -> str:
 def fetch_tls(domain: str, timeout: float = 10.0) -> TlsHandshake:
     """Establish a TLS connection and return the raw handshake data.
 
+    The target host is validated by the outbound safety guard before any
+    connection is attempted; refused targets raise ``BlockedTargetError``.
+
     Raises:
         TlsUnavailableError: when the hostname is unreachable, refuses TLS,
             or the handshake raises an unexpected protocol error.
+        BlockedTargetError: when the target host is refused by the outbound
+            safety guard (private, loopback, link-local, reserved, CGNAT,
+            multicast or well-known private hostname).
     """
     hostname = _hostname(domain)
+
+    blocked = validate_public_host(hostname)
+    if blocked:
+        raise BlockedTargetError(blocked)
 
     verified = _attempt(hostname, timeout, verified=True)
     if verified is not None:

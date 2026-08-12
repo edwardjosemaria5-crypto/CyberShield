@@ -225,6 +225,38 @@ def test_missing_stats_is_bad_response():
     assert signals.reason == "bad_response"
 
 
+@pytest.mark.parametrize("payload", [[], "not-an-object", 42])
+def test_non_object_payload_is_bad_response(payload):
+    adapter = make_adapter(lambda request: json_response(payload))
+
+    signals = adapter.lookup("example.com")
+
+    assert signals.status == "unavailable"
+    assert signals.reason == "bad_response"
+    assert signals.malicious is False
+
+
+def test_not_found_non_object_payload_is_bad_response():
+    adapter = make_adapter(lambda request: json_response([], status=404))
+
+    signals = adapter.lookup("weird.example.com")
+
+    assert signals.status == "unavailable"
+    assert signals.reason == "bad_response"
+
+
+def test_non_numeric_stats_are_bad_response():
+    payload = vt_payload(
+        stats={"malicious": "many", "suspicious": 0, "harmless": 0, "undetected": 0}
+    )
+    adapter = make_adapter(lambda request: json_response(payload))
+
+    signals = adapter.lookup("example.com")
+
+    assert signals.status == "unavailable"
+    assert signals.reason == "bad_response"
+
+
 # ------------------------------------------------------------------ config
 
 def test_engine_verdict_without_result_text_still_counts():

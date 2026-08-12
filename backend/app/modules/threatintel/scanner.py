@@ -1,3 +1,4 @@
+import logging
 from typing import Any
 
 from app.core.config import THREAT_INTEL_AGREEMENT_BONUS, THREAT_INTEL_CONFLICT_MULTIPLIER
@@ -23,6 +24,9 @@ from .rules import (
     SAFE_BROWSING_MALICIOUS_PENALTY,
     SAFE_BROWSING_SUSPICIOUS_PENALTY,
 )
+
+
+logger = logging.getLogger("cybershield.threatintel")
 
 
 def scan_threatintel_module(
@@ -91,7 +95,23 @@ def scan_threatintel_module(
     if adapters:
         normalized_target = normalize_url(hostname)
         for adapter in adapters:
-            signal = adapter.lookup(normalized_target)
+            try:
+                signal = adapter.lookup(normalized_target)
+            except Exception as exc:  # noqa: BLE001 - provider failure is isolated
+                # A provider must never break the scan. Any unexpected
+                # exception (bad payload shape, adapter bug, ...) degrades
+                # to the established "unavailable" signal: we learned
+                # nothing, and that is never a verdict. Only the exception
+                # class is logged — never the message or provider internals.
+                logger.warning(
+                    "Threat-intel provider %s raised unexpected %s for %r",
+                    adapter.provider,
+                    type(exc).__name__,
+                    normalized_target,
+                )
+                signal = adapter.unavailable(
+                    "bad_response", "The provider returned an unexpected result."
+                )
             provider_signals.append(signal)
             penalty = _provider_penalty(signal)
             if penalty:

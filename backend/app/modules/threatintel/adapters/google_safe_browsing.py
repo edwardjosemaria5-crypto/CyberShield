@@ -112,7 +112,12 @@ class GoogleSafeBrowsingAdapter(ThreatIntelAdapter):
 
         return self._normalize(payload, target)
 
-    def _normalize(self, payload: dict[str, Any], target: str) -> ThreatIntelSignals:
+    def _normalize(self, payload: Any, target: str) -> ThreatIntelSignals:
+        if not isinstance(payload, dict):
+            return self.unavailable(
+                "bad_response", "The provider returned a non-object payload."
+            )
+
         matches = payload.get("matches") or []
         if not isinstance(matches, list):
             return self.unavailable("bad_response", "Provider payload did not contain a matches list.")

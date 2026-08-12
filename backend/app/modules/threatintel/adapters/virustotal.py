@@ -170,6 +170,8 @@ class VirusTotalAdapter(ThreatIntelAdapter):
             payload = response.json()
         except (ValueError, TypeError):
             payload = {}
+        if not isinstance(payload, dict):
+            return self.unavailable("bad_response", "The provider returned a non-object payload.")
         code = (payload.get("error") or {}).get("code", "")
         if code == "ResourceNotFoundException":
             return self.unavailable(
@@ -179,7 +181,12 @@ class VirusTotalAdapter(ThreatIntelAdapter):
             )
         return self.unavailable("bad_response", "The provider returned an unrecognized payload.")
 
-    def _normalize(self, payload: dict[str, Any]) -> ThreatIntelSignals:
+    def _normalize(self, payload: Any) -> ThreatIntelSignals:
+        if not isinstance(payload, dict):
+            return self.unavailable(
+                "bad_response", "The provider returned a non-object payload."
+            )
+
         data = payload.get("data")
         if not isinstance(data, dict):
             return self.unavailable(
@@ -198,10 +205,14 @@ class VirusTotalAdapter(ThreatIntelAdapter):
                 "bad_response", "Provider payload did not contain analysis stats."
             )
 
-        malicious_count = max(0, int(stats.get("malicious", 0)))
-        suspicious_count = max(0, int(stats.get("suspicious", 0)))
-        harmless_count = max(0, int(stats.get("harmless", 0)))
-        undetected_count = max(0, int(stats.get("undetected", 0)))
+        malicious_count = _parse_stat(stats.get("malicious", 0))
+        suspicious_count = _parse_stat(stats.get("suspicious", 0))
+        harmless_count = _parse_stat(stats.get("harmless", 0))
+        undetected_count = _parse_stat(stats.get("undetected", 0))
+        if None in (malicious_count, suspicious_count, harmless_count, undetected_count):
+            return self.unavailable(
+                "bad_response", "Provider payload contained invalid analysis stats."
+            )
 
         flagged_rows = _flagged_engines(attributes.get("last_analysis_results"))
         evidence = _build_evidence(
@@ -237,6 +248,14 @@ def _url_id(url: str) -> str:
     """VirusTotal resource id: base64url(URL) with padding stripped."""
     encoded = base64.urlsafe_b64encode(url.encode("utf-8")).decode("ascii")
     return encoded.rstrip("=")
+
+
+def _parse_stat(value: Any) -> int | None:
+    """Parse one analysis-stat value; ``None`` when it is not a usable integer."""
+    try:
+        return max(0, int(value))
+    except (TypeError, ValueError):
+        return None
 
 
 def _flagged_engines(results: Any) -> list[dict[str, Any]]:
