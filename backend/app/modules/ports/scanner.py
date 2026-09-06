@@ -3,7 +3,7 @@ import socket
 
 from app.schemas.finding import Finding
 from app.schemas.module_result import ModuleResult, score_to_status
-from app.utils.networking import parse_host, validate_public_host
+from app.utils.networking import resolve_public_host
 from .rules import (
     COMMON_PORTS,
     CONNECTION_TIMEOUT,
@@ -15,11 +15,14 @@ from .rules import (
 )
 
 
-def _check_port(host: str, port: int, timeout: float = CONNECTION_TIMEOUT) -> dict | None:
+def _check_port(address: str, port: int, timeout: float = CONNECTION_TIMEOUT) -> dict | None:
+    """Probe one literal IP/port. ``address`` must be a validated public IP
+    literal (never a hostname) so DNS is never re-resolved at connect time."""
+    family = socket.AF_INET6 if ":" in address else socket.AF_INET
     try:
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        with socket.socket(family, socket.SOCK_STREAM) as sock:
             sock.settimeout(timeout)
-            result = sock.connect_ex((host, port))
+            result = sock.connect_ex((address, port))
             if result == 0:
                 service, risk, note = COMMON_PORTS.get(port, ("Unknown", "Low", "Open port detected."))
                 return {
@@ -36,10 +39,8 @@ def _check_port(host: str, port: int, timeout: float = CONNECTION_TIMEOUT) -> di
 
 def scan_ports_module(host: str) -> ModuleResult:
     """Perform concurrent TCP port scan against common target ports."""
-    target_host = parse_host(host)
-
-    blocked = validate_public_host(target_host)
-    if blocked:
+    target, reason = resolve_public_host(host)
+    if reason:
         return ModuleResult(
             module=MODULE_NAME,
             status="error",
@@ -49,16 +50,13 @@ def scan_ports_module(host: str) -> ModuleResult:
                 Finding(
                     title="Port scan refused",
                     severity="low",
-                    description=blocked,
+                    description=reason,
                     recommendation="Scan a public hostname only.",
                 )
             ],
-            details={"host": target_host, "ip": None, "error": blocked},
+            details={"host": host, "ip": None, "error": reason},
         )
-
-    try:
-        ip = socket.gethostbyname(target_host)
-    except Exception as exc:
+    if target is None:
         return ModuleResult(
             module=MODULE_NAME,
             status="error",
@@ -68,20 +66,25 @@ def scan_ports_module(host: str) -> ModuleResult:
                 Finding(
                     title="Port scan failed",
                     severity="low",
-                    description=f"Failed to resolve hostname: {exc}",
+                    description="Failed to resolve hostname.",
                     recommendation="Verify the hostname resolves correctly.",
                 )
             ],
-            details={"host": target_host, "ip": None, "error": str(exc)},
+            details={"host": host, "ip": None, "error": "Failed to resolve hostname."},
         )
 
     open_ports = []
-    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-        futures = [executor.submit(_check_port, ip, port) for port in COMMON_PORTS.keys()]
-        for future in futures:
-            res = future.result()
+
+    def _scan_address(address: str) -> None:
+        for port in COMMON_PORTS.keys():
+            res = _check_port(address, port)
             if res:
                 open_ports.append(res)
+
+    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+        futures = [executor.submit(_scan_address, address) for address in target.addresses]
+        for future in futures:
+            future.result()
 
     open_ports.sort(key=lambda x: x["port"])
     high_risk_ports = [p for p in open_ports if p["risk"] == "High"]
@@ -110,8 +113,8 @@ def scan_ports_module(host: str) -> ModuleResult:
         confidence=DEFAULT_CONFIDENCE,
         findings=findings,
         details={
-            "host": target_host,
-            "ip": ip,
+            "host": target.host,
+            "ip": ", ".join(target.addresses),
             "open_ports": open_ports,
             "total_open": len(open_ports),
             "high_risk_ports": len(high_risk_ports),

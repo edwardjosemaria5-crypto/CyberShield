@@ -54,7 +54,7 @@ def test_scan_headers_returns_security_summary(monkeypatch):
             self.is_redirect = False
 
     monkeypatch.setattr(
-        "app.modules.headers.scanner.requests.get",
+        "app.modules.headers.scanner._follow_redirects_safely",
         lambda url, **kwargs: DummyResponse(),
     )
 

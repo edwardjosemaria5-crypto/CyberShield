@@ -15,10 +15,27 @@ Design notes:
   resolution failure as a module error, and no connection is made without
   resolving.
 - The helper is pure Python (``socket``/``ipaddress``); no new dependency.
+
+DNS rebinding / TOCTOU mitigation
+---------------------------------
+
+``validate_public_host`` only reports whether a host may be contacted; it
+does not hand back the validated addresses. Modules that then connect by
+hostname would re-resolve DNS at connect time, reopening a window where a
+rebinding name answers public during validation but private at connect.
+
+The single-source resolution entry point is ``resolve_public_host``: it
+resolves the host once, refuses it if ANY answer is non-public (preserving
+the all-or-nothing policy of ``validate_public_host``), and returns the
+validated public IP literals. Callers connect to those literal IPs (never
+re-resolving the hostname), while keeping the original hostname for TLS SNI
+and certificate verification.
 """
 
 import ipaddress
+import re
 import socket
+from typing import NamedTuple
 
 from ipaddress import _BaseAddress
 
@@ -29,6 +46,12 @@ _CGNAT_NETWORK = ipaddress.ip_network("100.64.0.0/10")
 #: Hostnames that must never be contacted even if they happen to resolve
 #: through a public DNS record.
 _RESERVED_HOSTNAMES = {"localhost", "localhost.localdomain", "local"}
+
+#: Matches identifiers that look numeric / IP-ish but are NOT a canonical
+#: ``ipaddress`` literal (e.g. ``2130706433``, ``0x7f000001``, ``0177.0.0.1``,
+#: ``127.1``). These are ambiguous host forms whose resolution is OS-dependent
+#: and can silently collapse to a private address, so they are refused.
+_NUMERIC_HOST_RE = re.compile(r"^[0-9a-fA-FxX:.]+$")
 
 
 def _is_private_address(address: _BaseAddress) -> bool:
@@ -101,3 +124,92 @@ def validate_public_host(host: str) -> str | None:
         except ValueError:
             continue
     return None
+
+
+class ResolvedTarget(NamedTuple):
+    """Validated, pinned destination resolved ONCE by ``resolve_public_host``.
+
+    ``host`` carries the cleaned destination host (for TLS SNI and HTTP
+    ``Host``/certificate verification), while ``addresses`` holds the
+    validated public IP literals (IPv4 first, then IPv6) that a caller must
+    actually connect to — never re-resolving the hostname.
+    """
+
+    host: str
+    addresses: tuple[str, ...]
+
+    @property
+    def ipv4(self) -> tuple[str, ...]:
+        return tuple(a for a in self.addresses if ":" not in a)
+
+    @property
+    def ipv6(self) -> tuple[str, ...]:
+        return tuple(a for a in self.addresses if ":" in a)
+
+
+def resolve_public_host(host: str) -> tuple[ResolvedTarget | None, str | None]:
+    """Resolve a destination host ONCE and pin the validated public IPs.
+
+    This is the single authoritative resolution for outbound connections.
+    Unlike ``validate_public_host`` (which only returns a verdict), it hands
+    back the actual literal addresses a caller must connect to, so a hostname
+    is never re-resolved at connect time (closing the DNS-rebinding/TOCTOU
+    window). Behaviors are preserved from ``validate_public_host``:
+
+    - A host is refused if ANY resolved answer is non-public.
+    - Ambiguous non-canonical numeric identifiers are refused.
+    - An empty or unresolvable host returns ``(None, None)``; the caller
+      treats that as its own module error path (no connection is made).
+
+    Returns:
+        ``(target, None)`` on success, ``(None, reason)`` when refused, or
+        ``(None, None)`` when the host is empty or does not resolve.
+    """
+    target_host = parse_host(host)
+    if not target_host:
+        return None, "Target has no host."
+
+    if target_host in _RESERVED_HOSTNAMES or ".localhost" in target_host or ".local" in target_host:
+        return None, f"Target '{target_host}' is a private hostname; refusing."
+
+    try:
+        parsed_ip = ipaddress.ip_address(target_host)
+    except ValueError:
+        parsed_ip = None
+
+    if parsed_ip is not None:
+        if _is_private_address(parsed_ip):
+            return None, f"Target IP {target_host} is private/reserved; refusing."
+        return ResolvedTarget(target_host, (target_host,)), None
+
+    if _NUMERIC_HOST_RE.match(target_host):
+        return None, f"Target '{target_host}' is a non-canonical numeric host; refusing."
+
+    try:
+        infos = socket.getaddrinfo(target_host, None, proto=socket.IPPROTO_TCP)
+    except socket.gaierror:
+        return None, None
+    except OSError:
+        return None, None
+
+    addresses: list[str] = []
+    seen: set[str] = set()
+    for info in infos:
+        value = info[4][0]
+        try:
+            address = ipaddress.ip_address(value)
+        except ValueError:
+            continue
+        if _is_private_address(address):
+            return None, f"Target '{target_host}' resolves to a private/reserved address; refusing."
+        key = address.compressed
+        if key in seen:
+            continue
+        seen.add(key)
+        addresses.append(key)
+
+    if not addresses:
+        return None, None
+
+    addresses.sort(key=lambda item: (ipaddress.ip_address(item).version, item))
+    return ResolvedTarget(target_host, tuple(addresses)), None
