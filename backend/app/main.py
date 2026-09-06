@@ -7,6 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import BROWSER_CORS_ORIGINS
+from app.core.security import SecurityHeadersMiddleware
 
 # Import API routes
 from app.api.routes import (
@@ -55,6 +56,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Global response security headers. Registered after CORS so the security
+# headers are stamped on every response (normal, error, and preflight) without
+# disturbing CORS handling or overriding route-level header values.
+app.add_middleware(SecurityHeadersMiddleware)
 
 # ==========================================================
 # Register API Routes
