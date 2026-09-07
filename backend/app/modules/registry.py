@@ -11,6 +11,7 @@ from app.modules.blacklist.service import run_blacklist_check
 from app.modules.brand_detection.service import run_brand_detection_check
 from app.modules.dns.service import run_dns_check
 from app.modules.headers.service import run_headers_check
+from app.modules.infrastructure.service import run_infrastructure_check
 from app.modules.phishing.service import run_phishing_check
 from app.modules.reputation.service import run_reputation_check
 from app.modules.ssl.service import run_ssl_check
@@ -175,6 +176,25 @@ class PhishingScanner(BaseModule):
         return run_phishing_check(target)
 
 
+class InfrastructureScanner(BaseModule):
+    """Informational hosting/location context (ASN, org, country/region).
+
+    Purely display context: the module is deliberately absent from
+    ``MODULE_WEIGHTS``, so it can never affect the Trust Score, verdict,
+    module penalties or finding severities.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(
+            name="infrastructure",
+            description="Hosting network and location context",
+            target_kind=TARGET_DOMAIN,
+        )
+
+    def run(self, target: str) -> ModuleResult:
+        return run_infrastructure_check(target)
+
+
 #: Canonical pipeline order. URL scanners run first (sequential stage),
 #: domain scanners follow (concurrent stage) and preserve registry order.
 MODULE_REGISTRY: list[BaseModule] = [
@@ -189,6 +209,7 @@ MODULE_REGISTRY: list[BaseModule] = [
     ThreatIntelScanner(),
     BlacklistScanner(),
     PhishingScanner(),
+    InfrastructureScanner(),
 ]
 
 

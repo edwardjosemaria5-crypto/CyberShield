@@ -87,6 +87,38 @@ def _bounded_int(name: str, default: int, low: int, high: int) -> int:
 #: Output cap (tokens) for the explanation model; keeps cost bounded kink.
 AI_MAX_TOKENS = _bounded_int("AI_MAX_TOKENS", 800, 128, 8192)
 
+# ---------------------------------------------------------------------------
+# Infrastructure location intelligence (informational, v1.1).
+# Hosting/location context (ASN, hosting organization, country/region) for
+# the scanned domain's resolved IPs. Purely informational: the module is
+# deliberately absent from MODULE_WEIGHTS, so it can never affect the Trust
+# Score, verdict, module penalties or finding severities. Off by default;
+# opt in with INFRASTRUCTURE_ENABLED plus a provider key (the provider is
+# selected in a later v1.1 phase).
+# ---------------------------------------------------------------------------
+INFRASTRUCTURE_ENABLED = os.environ.get("INFRASTRUCTURE_ENABLED", "false").lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
+# Provider slug; consumed once a concrete adapter ships (v1.1 Phase 3).
+INFRASTRUCTURE_PROVIDER = os.environ.get("INFRASTRUCTURE_PROVIDER", "")
+# Provider API key: read from the environment only — never hardcoded, never
+# logged, never persisted, never echoed into responses.
+INFRASTRUCTURE_API_KEY = os.environ.get("INFRASTRUCTURE_API_KEY", "")
+# Per-request timeout in seconds for provider lookups.
+INFRASTRUCTURE_TIMEOUT_SECONDS = _bounded_float(
+    "INFRASTRUCTURE_TIMEOUT_SECONDS", 5.0, 1.0, 30.0
+)
+# Per-IP result cache TTL (reserved for the v1.1 Phase 4 caching layer).
+INFRASTRUCTURE_CACHE_TTL_SECONDS = _bounded_int(
+    "INFRASTRUCTURE_CACHE_TTL_SECONDS", 86400, 60, 2592000
+)
+# Behavioral cap: maximum provider lookups per scan (DNS A/AAAA sets are
+# small; caps provider load and rate-limit exposure).
+INFRASTRUCTURE_MAX_IPS = _bounded_int("INFRASTRUCTURE_MAX_IPS", 3, 1, 10)
+
 # Comma-separated browser origins allowed to call the API cross-origin.
 # Development defaults match the local Vite dev server; production
 # deployments must override with their own origin(s) — never "*".

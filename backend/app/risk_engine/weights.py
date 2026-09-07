@@ -3,6 +3,12 @@
 Weights are normalized inside :func:`app.risk_engine.scorer.compute_trust_score`
 so they do not need to sum to exactly 100 here; the scorer is robust to both
 missing and errored modules by re-normalizing over contributing modules.
+
+NOTE: ``"infrastructure"`` is deliberately absent from :data:`MODULE_WEIGHTS`.
+It is an informational module (hosting/location context for the scanned
+domain's resolved IPs) that must never affect the Trust Score; the scorer
+skips modules without a weight. If this dict is ever edited, keep the
+deliberate absence visible.
 """
 
 MODULE_WEIGHTS: dict[str, float] = {
