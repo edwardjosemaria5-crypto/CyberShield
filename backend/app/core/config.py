@@ -93,8 +93,7 @@ AI_MAX_TOKENS = _bounded_int("AI_MAX_TOKENS", 800, 128, 8192)
 # the scanned domain's resolved IPs. Purely informational: the module is
 # deliberately absent from MODULE_WEIGHTS, so it can never affect the Trust
 # Score, verdict, module penalties or finding severities. Off by default;
-# opt in with INFRASTRUCTURE_ENABLED plus a provider key (the provider is
-# selected in a later v1.1 phase).
+# opt in with INFRASTRUCTURE_ENABLED plus INFRASTRUCTURE_PROVIDER=ipwhois.
 # ---------------------------------------------------------------------------
 INFRASTRUCTURE_ENABLED = os.environ.get("INFRASTRUCTURE_ENABLED", "false").lower() in {
     "1",
@@ -102,7 +101,7 @@ INFRASTRUCTURE_ENABLED = os.environ.get("INFRASTRUCTURE_ENABLED", "false").lower
     "yes",
     "on",
 }
-# Provider slug; consumed once a concrete adapter ships (v1.1 Phase 3).
+# Provider slug selects the concrete adapter ("ipwhois" = ipwho.is, keyless).
 INFRASTRUCTURE_PROVIDER = os.environ.get("INFRASTRUCTURE_PROVIDER", "")
 # Provider API key: read from the environment only — never hardcoded, never
 # logged, never persisted, never echoed into responses.

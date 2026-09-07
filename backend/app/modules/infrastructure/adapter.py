@@ -34,6 +34,7 @@ from abc import ABC, abstractmethod
 
 from pydantic import BaseModel, Field
 
+from app.modules.infrastructure.rules import MAX_FIELD_LEN
 from app.schemas.threat_intel import UnavailableReason
 
 
@@ -43,19 +44,23 @@ class InfrastructureData(BaseModel):
     All fields are nullable: a provider may legitimately not supply e.g.
     ``region`` or ``isp``; ``None`` stays ``None``. Normalization and
     validation happen inside the concrete adapter.
+
+    Schema-level length bounds mirror the scanner's call-site ``_bound``
+    truncation (defense-in-depth): even an adapter that forgets to truncate
+    itself cannot persist or return an unbounded field.
     """
 
-    ip: str | None = None                   # queried IP (echoed by the provider)
-    asn: str | None = None                  # e.g. "AS15169"
-    asn_organization: str | None = None
-    isp: str | None = None
-    hosting_provider: str | None = None
-    network: str | None = None              # CIDR, e.g. "142.250.0.0/15"
-    reverse_dns: str | None = None          # PTR hostname
-    country: str | None = None
-    country_code: str | None = None         # ISO 3166-1 alpha-2
-    region: str | None = None               # state/province, provider-guaranteed only
-    source: str | None = None               # provider slug for provenance
+    ip: str | None = Field(default=None, max_length=MAX_FIELD_LEN)  # queried IP (echoed by the provider)
+    asn: str | None = Field(default=None, max_length=MAX_FIELD_LEN)  # e.g. "AS15169"
+    asn_organization: str | None = Field(default=None, max_length=MAX_FIELD_LEN)
+    isp: str | None = Field(default=None, max_length=MAX_FIELD_LEN)
+    hosting_provider: str | None = Field(default=None, max_length=MAX_FIELD_LEN)
+    network: str | None = Field(default=None, max_length=MAX_FIELD_LEN)  # CIDR, e.g. "142.250.0.0/15"
+    reverse_dns: str | None = Field(default=None, max_length=MAX_FIELD_LEN)  # PTR hostname
+    country: str | None = Field(default=None, max_length=MAX_FIELD_LEN)
+    country_code: str | None = Field(default=None, max_length=MAX_FIELD_LEN)  # ISO 3166-1 alpha-2
+    region: str | None = Field(default=None, max_length=MAX_FIELD_LEN)  # state/province, provider-guaranteed only
+    source: str | None = Field(default=None, max_length=MAX_FIELD_LEN)  # provider slug for provenance
 
 
 class UnavailableData(BaseModel):

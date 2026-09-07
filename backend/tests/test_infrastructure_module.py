@@ -541,16 +541,39 @@ def test_ipv6_literal_is_normalized_and_queried(monkeypatch):
     assert adapter.calls == [EXAMPLE_IPV6]
 
 
-def test_long_provider_values_are_truncated(monkeypatch):
+def test_oversized_field_rejected_by_schema():
+    """Schema defense-in-depth mirrors ``UnavailableData.detail``: an
+    >80-char provider field cannot even be represented on the model."""
+    with pytest.raises(ValidationError):
+        InfrastructureData(asn_organization="X" * 500, source="fake")
+
+
+class OversizeFieldAdapter(InfrastructureAdapter):
+    """Hostile adapter that constructs ``InfrastructureData`` directly with an
+    oversized field (skipping the adapter's truncation) — the schema rejects
+    it, and the scanner must degrade to ``bad_response`` without crashing."""
+
+    provider = "oversize"
+
+    @property
+    def is_configurable(self):
+        return True
+
+    def lookup(self, ip_address):
+        return InfrastructureData(asn_organization="X" * 500, source="fake")
+
+
+def test_adapter_oversized_field_degrades_to_bad_response(monkeypatch):
+    """A hostile adapter constructing oversized InfrastructureData inside
+    ``lookup()`` raises at the model boundary; ``_lookup`` isolates it and
+    the scan continues as unavailable — never a crash, never a leak."""
     _monkey_dns(monkeypatch, [EXAMPLE_IP])
-    long_org = "X" * 500
-    adapter = FakeAdapter(
-        {EXAMPLE_IP: InfrastructureData(asn_organization=long_org, source="fake")}
-    )
+    result = scan_infrastructure_module("example.com", adapter=OversizeFieldAdapter())
 
-    result = scan_infrastructure_module("example.com", adapter=adapter)
-
-    assert len(result.details["infrastructure"]["asn_organization"]) == 80
+    assert result.details["infrastructure"]["status"] == "unavailable"
+    assert result.details["infrastructure"]["reason"] == "bad_response"
+    assert result.score == 100
+    assert result.findings == []
 
 
 # ============================================================ resolution

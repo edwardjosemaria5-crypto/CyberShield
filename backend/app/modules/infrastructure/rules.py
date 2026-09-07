@@ -18,3 +18,8 @@ DEFAULT_CONFIDENCE = 100
 #: Mirrors ``_MAX_EVIDENCE_LEN`` in the VirusTotal adapter so the report can
 #: never render an unbounded blob.
 MAX_FIELD_LEN = 80
+
+#: Provider slug matched against ``INFRASTRUCTURE_PROVIDER`` to select the
+#: IPWHOIS (ipwho.is) adapter. Keyless, HTTPS, IP-literal only, 1,000
+#: requests/day free with commercial use permitted.
+PROVIDER_IPWHOIS = "ipwhois"
