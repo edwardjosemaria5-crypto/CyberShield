@@ -26,6 +26,7 @@ from app.modules.infrastructure.adapter import (
     InfrastructureData,
     UnavailableData,
 )
+from app.modules.infrastructure.cache import InfrastructureCache
 from app.modules.infrastructure.models import InfrastructureProfile
 from app.modules.infrastructure.rules import DEFAULT_CONFIDENCE, MAX_FIELD_LEN, MODULE_NAME
 from app.schemas.module_result import ModuleResult, score_to_status
@@ -98,13 +99,18 @@ def scan_infrastructure_module(
     domain: str,
     adapter: InfrastructureAdapter | None = None,
     max_ips: int | None = None,
+    cache: InfrastructureCache | None = None,
 ) -> ModuleResult:
     """Resolve the target's public IPs and enrich them with provider data.
 
     ``adapter`` is the provider injection point for tests (defaults to
     ``None`` → ``unavailable`` with ``missing_api_key``, never a verdict).
-    The module reports ``ok`` / score 100 / confidence 100 with no findings
-    in every state.
+    ``cache`` is the optional bounded in-memory cache for validated provider
+    data: it is consulted ONLY after resolution/validation and only holds
+    successful lookups, so a hit can never bypass target validation and
+    transient provider failures are never served from cache. The module
+    reports ``ok`` / score 100 / confidence 100 with no findings in every
+    state.
 
     Resolution pipeline::
 
@@ -113,11 +119,11 @@ def scan_infrastructure_module(
             → resolve_public_host()
             → ResolvedTarget
             → validated public IP literals only
-            → adapter.lookup(ip)
+            → cache lookup (validated IP literal) | miss → adapter.lookup(ip)
 
-    The future provider boundary receives validated public IP literal
-    strings.  Raw hostnames, URLs, userinfo and credentials never cross
-    the adapter boundary.
+    The provider boundary receives validated public IP literal strings.
+    Raw hostnames, URLs, userinfo and credentials never cross the adapter
+    boundary.
     """
     hostname = parse_host(domain)
 
@@ -152,7 +158,13 @@ def scan_infrastructure_module(
 
     first_failure: UnavailableData | None = None
     for ip in ips:
-        result = _lookup(adapter, ip)
+        cached = cache.get(ip) if cache is not None else None
+        if cached is not None:
+            result = cached
+        else:
+            result = _lookup(adapter, ip)
+            if cache is not None:
+                cache.put(ip, result)
         if not isinstance(result, InfrastructureData):
             if first_failure is None:
                 first_failure = result

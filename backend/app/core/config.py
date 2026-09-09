@@ -110,7 +110,8 @@ INFRASTRUCTURE_API_KEY = os.environ.get("INFRASTRUCTURE_API_KEY", "")
 INFRASTRUCTURE_TIMEOUT_SECONDS = _bounded_float(
     "INFRASTRUCTURE_TIMEOUT_SECONDS", 5.0, 1.0, 30.0
 )
-# Per-IP result cache TTL (reserved for the v1.1 Phase 4 caching layer).
+# Per-IP result cache TTL in seconds, consumed by the bounded in-memory
+# infrastructure provider cache (validated successful lookups only).
 INFRASTRUCTURE_CACHE_TTL_SECONDS = _bounded_int(
     "INFRASTRUCTURE_CACHE_TTL_SECONDS", 86400, 60, 2592000
 )
