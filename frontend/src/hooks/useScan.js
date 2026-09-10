@@ -1,21 +1,11 @@
 import { useState } from 'react';
 import { runScan } from '../services/scanService';
+import isScanResult from '../utils/resultGuard';
 
 const IDLE = 'idle';
 const SCANNING = 'scanning';
 const SUCCESS = 'success';
 const ERROR = 'error';
-
-function isScanResult(data) {
-  return (
-    data !== null &&
-    typeof data === 'object' &&
-    typeof data.target === 'string' &&
-    typeof data.trust_score === 'number' &&
-    typeof data.confidence === 'number' &&
-    typeof data.verdict === 'string'
-  );
-}
 
 export default function useScan() {
   const [status, setStatus] = useState(IDLE);

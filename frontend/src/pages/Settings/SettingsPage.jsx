@@ -98,7 +98,11 @@ export default function SettingsPage() {
         </Card>
       )}
 
-      <Card title="Scanner modules" subtitle="Eleven modules run on every scan" className={styles.card}>
+      <Card
+      title="Scanner modules"
+      subtitle="Eleven scored modules run on every scan; infrastructure is an optional informational context, never scored"
+      className={styles.card}
+    >
         <ul className={styles.moduleList}>
           {SCANNER_MODULES.map((module) => (
             <li key={module.name} className={styles.moduleItem}>

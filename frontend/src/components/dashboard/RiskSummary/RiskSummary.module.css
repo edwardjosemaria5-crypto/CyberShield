@@ -49,6 +49,11 @@
   color: var(--color-text);
 }
 
+.infoValue {
+  color: var(--color-info) !important;
+  font-weight: 700;
+}
+
 .breakdown {
   list-style: none;
   margin: 0;

@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { normalizeApiError } from './errors';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000';
 
@@ -11,11 +12,7 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     const status = error.response?.status;
-    const message =
-      error.response?.data?.detail ||
-      error.message ||
-      'The scan service could not be reached.';
-    const enriched = new Error(message);
+    const enriched = new Error(normalizeApiError(error));
     enriched.status = status;
     return Promise.reject(enriched);
   },

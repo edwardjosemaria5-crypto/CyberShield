@@ -1,4 +1,5 @@
 import styles from './RiskSummary.module.css';
+import { countInformationalModules, countScoredModules } from '../../../utils/formatters';
 
 const SEVERITY_KEYS = ['critical', 'high', 'medium', 'low', 'info'];
 
@@ -18,7 +19,8 @@ export default function RiskSummary({ verdict, summary, modules, findings }) {
     low: summary?.low ?? 0,
     info: summary?.info ?? 0,
   };
-  const moduleCount = modules?.length ?? 0;
+  const moduleCount = countScoredModules(modules);
+  const informationalCount = countInformationalModules(modules);
   const findingCount = findings?.length ?? 0;
 
   const rows = [
@@ -38,6 +40,14 @@ export default function RiskSummary({ verdict, summary, modules, findings }) {
             <dd>{row.value}</dd>
           </div>
         ))}
+        {informationalCount > 0 && (
+          <div className={styles.row}>
+            <dt>Infrastructure Context</dt>
+            <dd className={styles.infoValue}>
+              {informationalCount} {informationalCount === 1 ? 'item' : 'items'} · informational
+            </dd>
+          </div>
+        )}
       </dl>
 
       <ul className={styles.breakdown} aria-label="Findings by severity">

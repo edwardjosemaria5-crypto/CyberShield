@@ -14,6 +14,7 @@ import EmptyState from '../../components/common/StateViews/EmptyState';
 import ThreatIntelCard from '../../components/threatintel/ThreatIntelCard/ThreatIntelCard';
 import useScanContext from '../../hooks/useScanContext';
 import usePageTitle from '../../hooks/usePageTitle';
+import { countInformationalModules, countScoredModules } from '../../utils/formatters';
 import styles from './DashboardPage.module.css';
 
 export default function DashboardPage() {
@@ -62,6 +63,13 @@ export default function DashboardPage() {
     findings,
   } = result;
 
+  const scoredModuleCount = countScoredModules(modules);
+  const informationalModuleCount = countInformationalModules(modules);
+  const moduleSubtitle =
+    informationalModuleCount > 0
+      ? `${scoredModuleCount} security modules + ${informationalModuleCount} informational infrastructure context`
+      : `${scoredModuleCount} security modules`;
+
   return (
     <div className={styles.page}>
       <div className={styles.top}>
@@ -91,7 +99,7 @@ export default function DashboardPage() {
         />
       </div>
 
-      <Card title="Module Analysis" subtitle="Per-module posture scores from the pipeline">
+      <Card title="Module Analysis" subtitle={moduleSubtitle}>
         <ModuleGrid modules={modules} renderers={{ threatintel: ThreatIntelCard }} />
       </Card>
 

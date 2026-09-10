@@ -61,6 +61,22 @@ export function moduleStatusTone(status) {
   return MODULE_STATUS_TONES[status] ?? 'neutral';
 }
 
+// Informational modules (currently only `infrastructure`) are context-only:
+// they run in the pipeline but are never scored — they cannot change the
+// Trust Score, confidence, verdict, or finding list. The UI must render
+// them clearly apart from the scored security modules.
+export function isInformationalModule(moduleResult) {
+  return !!moduleResult && moduleResult.module === 'infrastructure';
+}
+
+export function countScoredModules(modules) {
+  return Array.isArray(modules) ? modules.filter((m) => !isInformationalModule(m)).length : 0;
+}
+
+export function countInformationalModules(modules) {
+  return Array.isArray(modules) ? modules.filter((m) => isInformationalModule(m)).length : 0;
+}
+
 export function verdictTone(verdict) {
   return VERDICT_TONES[verdict] ?? 'neutral';
 }
@@ -110,6 +126,13 @@ const HOST_RE = /^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)(?:\.[a-zA-Z0
 const TLD_RE = /\.([a-zA-Z]{2,})$/;
 const IPV4_RE = /^(?:\d{1,3}\.){3}\d{1,3}$/;
 
+// Standard well-formed IPv6 literal (unbracketed, matching the backend's
+// parse_host() handling). Bracketed and userinfo forms are rejected by the
+// invalid-character check below; validation remains UX-only — the backend
+// is the authoritative validator.
+const IPV6_RE =
+  /^(?:(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}|(?:[0-9a-fA-F]{1,4}:){1,7}:|(?:[0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|(?:[0-9a-fA-F]{1,4}:){1,5}(?::[0-9a-fA-F]{1,4}){1,2}|(?:[0-9a-fA-F]{1,4}:){1,4}(?::[0-9a-fA-F]{1,4}){1,3}|(?:[0-9a-fA-F]{1,4}:){1,3}(?::[0-9a-fA-F]{1,4}){1,4}|(?:[0-9a-fA-F]{1,4}:){1,2}(?::[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:(?:(?::[0-9a-fA-F]{1,4}){1,6})|:(?:(?::[0-9a-fA-F]{1,4}){1,7}|:)|::(?:ffff(?::0{1,4}){0,1}:){0,1}(?:(?:25[0-5]|(?:2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3}(?:25[0-5]|(?:2[0-4]|1{0,1}[0-9]){0,1}[0-9])|(?:[0-9a-fA-F]{1,4}:){1,4}:(?:(?:25[0-5]|(?:2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3}(?:25[0-5]|(?:2[0-4]|1{0,1}[0-9]){0,1}[0-9]))$/;
+
 export function validateTarget(raw) {
   const value = raw.trim();
   if (!value) return 'Enter a domain or URL to scan.';
@@ -118,7 +141,7 @@ export function validateTarget(raw) {
   const rest = value.replace(/^https?:\/\//i, '');
   const host = rest.split(/[/?#]/)[0];
   const validHost = HOST_RE.test(host) && TLD_RE.test(host) && !host.includes('..');
-  if (!validHost && !IPV4_RE.test(host)) {
+  if (!validHost && !IPV4_RE.test(host) && !IPV6_RE.test(host)) {
     return 'Enter a valid domain (example.com) or URL (https://example.com).';
   }
   return null;
@@ -258,6 +281,30 @@ function summarizeDetails(moduleKey, details) {
     case 'phishing':
       if (details.is_phishing_suspect === undefined) return null;
       return details.is_phishing_suspect ? 'Suspected phishing' : 'No phishing indicators';
+    case 'infrastructure': {
+      const profile = details.infrastructure;
+      const available =
+        profile && typeof profile === 'object' && profile.status === 'available';
+      const info = [
+        available && typeof profile?.ip_address === 'string' ? profile.ip_address : null,
+        available
+          ? profile?.hosting_provider ?? profile?.asn_organization ?? profile?.isp ?? null
+          : null,
+        available && typeof profile?.asn === 'string' ? profile.asn : null,
+        available && typeof profile?.country_code === 'string' ? profile.country_code : null,
+      ].filter(Boolean);
+      const reason =
+        !available && profile && typeof profile?.reason === 'string'
+          ? profile.reason.replace(/_/g, ' ')
+          : null;
+      return [
+        available ? 'Available' : 'Unavailable',
+        reason ? `(${reason})` : null,
+        info.length > 0 ? info.slice(0, 3).join(', ') : null,
+      ]
+        .filter(Boolean)
+        .join(' ');
+    }
     default:
       return null;
   }

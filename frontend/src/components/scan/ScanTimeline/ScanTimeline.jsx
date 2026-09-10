@@ -1,5 +1,9 @@
 import Badge from '../../common/Badge/Badge';
-import { moduleStatusTone, moduleTitle } from '../../../utils/formatters';
+import {
+  isInformationalModule,
+  moduleStatusTone,
+  moduleTitle,
+} from '../../../utils/formatters';
 import styles from './ScanTimeline.module.css';
 
 export default function ScanTimeline({ modules }) {
@@ -7,14 +11,21 @@ export default function ScanTimeline({ modules }) {
 
   return (
     <ol className={styles.timeline}>
-      {modules.map((mod) => (
-        <li key={mod.module} className={styles.item}>
-          <span className={styles.dot} aria-hidden="true" />
-          <span className={styles.name}>{moduleTitle(mod.module)}</span>
-          <Badge tone={moduleStatusTone(mod.status)}>{mod.status}</Badge>
-          <span className={styles.score}>{mod.score}</span>
-        </li>
-      ))}
+      {modules.map((mod) => {
+        const informational = isInformationalModule(mod);
+        return (
+          <li key={mod.module} className={styles.item}>
+            <span className={styles.dot} aria-hidden="true" />
+            <span className={styles.name}>{moduleTitle(mod.module)}</span>
+            <Badge tone={informational ? 'info' : moduleStatusTone(mod.status)}>
+              {informational ? 'Informational' : mod.status}
+            </Badge>
+            <span className={informational ? styles.context : styles.score}>
+              {informational ? 'context' : mod.score}
+            </span>
+          </li>
+        );
+      })}
     </ol>
   );
 }

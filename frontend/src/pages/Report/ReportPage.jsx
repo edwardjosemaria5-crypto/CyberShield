@@ -16,6 +16,7 @@ import ThreatIntelCard from '../../components/threatintel/ThreatIntelCard/Threat
 import ExportToolbar from './ExportToolbar';
 import useScanReport from '../../hooks/useScanReport';
 import usePageTitle from '../../hooks/usePageTitle';
+import { countInformationalModules, countScoredModules } from '../../utils/formatters';
 import styles from './ReportPage.module.css';
 
 export default function ReportPage({ scanId }) {
@@ -66,6 +67,12 @@ export default function ReportPage({ scanId }) {
   } = scan;
 
   const threatIntelModule = (modules ?? []).find((mod) => mod.module === 'threatintel');
+  const scoredModuleCount = countScoredModules(modules);
+  const informationalModuleCount = countInformationalModules(modules);
+  const moduleSubtitle =
+    informationalModuleCount > 0
+      ? `${scoredModuleCount} security modules + ${informationalModuleCount} informational infrastructure context`
+      : `${scoredModuleCount} security modules`;
 
   return (
     <div className={styles.page}>
@@ -120,7 +127,7 @@ export default function ReportPage({ scanId }) {
       )}
 
       {/* E. Security modules */}
-      <Card title="Security Modules" subtitle="Per-module posture scores from the pipeline">
+      <Card title="Security Modules" subtitle={moduleSubtitle}>
         <ModuleGrid modules={modules} renderers={{ threatintel: ThreatIntelCard }} />
       </Card>
 

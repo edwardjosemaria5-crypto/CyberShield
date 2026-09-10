@@ -1,4 +1,10 @@
-import { SEVERITY_ORDER, moduleTitle, severityLabel } from './formatters';
+import {
+  SEVERITY_ORDER,
+  moduleTitle,
+  severityLabel,
+  countScoredModules,
+  isInformationalModule,
+} from './formatters';
 
 export function buildOverallAssessment(result) {
   if (!result) return null;
@@ -9,10 +15,17 @@ export function buildOverallAssessment(result) {
   const findingList = Array.isArray(findings) ? findings : [];
   const paragraphs = [];
 
+  const scoredCount = countScoredModules(moduleList);
+  const informationalCount = moduleList.filter((mod) => isInformationalModule(mod)).length;
+  const moduleText =
+    informationalCount > 0
+      ? `${scoredCount} security modules plus ${informationalCount} informational infrastructure context`
+      : `${scoredCount} security modules`;
+
   const totalText =
     findingList.length === 0
-      ? `The scan of ${name} ran ${moduleList.length} intelligence modules and detected no security findings.`
-      : `The scan of ${name} ran ${moduleList.length} intelligence modules and detected ${findingList.length} finding${findingList.length === 1 ? '' : 's'}.`;
+      ? `The scan of ${name} ran ${moduleText} and detected no security findings.`
+      : `The scan of ${name} ran ${moduleText} and detected ${findingList.length} finding${findingList.length === 1 ? '' : 's'}.`;
   paragraphs.push(totalText);
 
   if (findingList.length > 0) {
@@ -37,6 +50,7 @@ export function buildOverallAssessment(result) {
   }
 
   const weakModules = moduleList
+    .filter((mod) => !isInformationalModule(mod))
     .filter((mod) => typeof mod.score === 'number' && mod.score < 70)
     .sort((a, b) => a.score - b.score);
   if (weakModules.length > 0) {
