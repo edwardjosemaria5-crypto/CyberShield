@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException
 
+from app.core.constants import MAX_TARGET_LENGTH
 from app.schemas.analysis_request import AnalysisRequest
 from app.services.scan_service import run_scan
 
@@ -7,7 +8,6 @@ router = APIRouter(prefix="/scan", tags=["scan"])
 
 # Matches the POST body bound in AnalysisRequest; keeps the GET path variant
 # from driving unbounded strings into the pipeline or the database.
-MAX_TARGET_LENGTH = 2048
 
 
 @router.get("/{target:path}")

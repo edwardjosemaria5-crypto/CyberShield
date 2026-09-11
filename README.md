@@ -54,6 +54,37 @@ The strongest security engineering decisions:
 
 ---
 
+## Deployment Security Boundary (Local-Only)
+
+CyberShield's current release is **strictly local**: single-user, no
+authentication, no public internet exposure.
+
+| Component | Host publication (Compose) | Reachable from |
+| --- | --- | --- |
+| Frontend | `127.0.0.1:80:80` | This machine only |
+| Backend | `127.0.0.1:8000:8000` | This machine only |
+
+Inside its container the backend binds `0.0.0.0:8000`. That **internal** bind
+is intentional for container networking and is safe **only** because the
+container network is private and the host port is published exclusively to the
+loopback interface. The security boundary is the **host publication**:
+
+- `127.0.0.1:80:80` and `127.0.0.1:8000:8000` — loopback only. Safe as
+  deployed.
+- `80:80` or `8000:8000` — publishes the frontend/API beyond localhost and
+  **exposes the unauthenticated API to the network**. **Prohibited** for the
+  current release; changing the mappings in `docker-compose.yml` this way is a
+  security regression.
+
+HTTP without TLS is acceptable **only** because the deployment is strictly
+loopback-bound. CyberShield must never be made LAN-, internet- or remotely
+accessible on the current configuration: before any non-loopback deployment
+the architecture must be reassessed and **HTTPS/TLS, HSTS, authentication,
+authorization, rate limiting** and additional exposure controls become
+required. The local HTTP setup is not suitable for public exposure.
+
+---
+
 ## How It Works
 
 ![CyberShield v1 architecture diagram](docs/assets/cybershield-architecture.png)
@@ -238,6 +269,8 @@ Plus one endpoint per analysis module (`/dns/{domain}`, `/whois/{domain}`, `/ssl
 - **Heuristic scope.** Reputation, phishing, typosquatting and blacklist checks detect known signals, not all possible threats.
 - **WHOIS availability varies by registry.** An unavailable lookup is treated as informational, not suspicious.
 - **Single-user, no authentication.** CyberShield runs as a local/portfolio deployment, not a multi-tenant SaaS.
+- **No rate limiting.** Rate limiting is intentionally absent from the local single-user loopback release. Any non-loopback deployment requires a separate security architecture review.
+- **No database migration/backup tooling.** Schema is initialized idempotently (`init_db` → `create_all`); a migration/backup strategy is deferred for future long-lived or multi-user deployment.
 - **No automated CI pipeline yet.** Containerized runtime is verified locally; image builds and runtime checks are not yet CI-gated.
 - **Frontend dependency audit finding.** `npm audit` reports one pre-existing high-severity vulnerability in the frontend dependency tree — tracked as a security-maintenance follow-up, with no arbitrary package upgrades.
 

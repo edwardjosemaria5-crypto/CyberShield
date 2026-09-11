@@ -1,5 +1,6 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Path
 
+from app.core.constants import MAX_TARGET_LENGTH
 from app.modules.url_analysis.service import URLAnalysisService
 from app.schemas.module_result import ModuleResult
 
@@ -8,5 +9,5 @@ service = URLAnalysisService()
 
 
 @router.get("/{url:path}")
-def analyze_url(url: str) -> ModuleResult:
+def analyze_url(url: str = Path(..., max_length=MAX_TARGET_LENGTH)) -> ModuleResult:
     return service.scan(url)

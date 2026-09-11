@@ -450,13 +450,12 @@ on provider names**; it only reads normalized `ThreatIntelSignals`:
 
 - **backend** (`python:3.12-slim`): copies `requirements.txt`, `pip install`,
   copies `app/`, runs `uvicorn app.main:app --host 0.0.0.0 --port 8000`.
-  Exposed `8000:8000`.
+  Host publication is `127.0.0.1:8000:8000` (loopback only).
 - **frontend** (multi-stage: `node:20-alpine` build → `nginx:alpine` serve):
   `VITE_API_BASE_URL` is passed as a build arg (default
   `http://localhost:8000`), `npm run build`, static assets served by nginx on
-  `80:80`. The build stage uses `npm install --no-audit --no-fund` rather than
-  `npm ci` because npm 10.8.x on Node 20 skips rolldown's platform-native
-  optional dependency in `npm ci` (npm/cli#4828), which broke the build.
+  `127.0.0.1:80:80`. The build stage uses `npm ci --no-audit --no-fund` for a
+  deterministic install from the committed `package-lock.json`.
 - **Persistence**: bind mount `./data:/app/data`; the backend is configured
   with `CYBERSHIELD_DATABASE_URL=sqlite:////app/data/cybershield.db`, so Docker
   runs persist across rebuilds/restarts (verified end-to-end).
@@ -466,6 +465,14 @@ on provider names**; it only reads normalized `ThreatIntelSignals`:
   hard-coded anywhere in the Docker configuration.
 - Runtime flow: `docker compose up --build` → frontend at `http://localhost`,
   API at `http://localhost:8000` with CORS configured for `http://localhost`.
+
+**Loopback security contract.** The backend binds `0.0.0.0:8000` *inside its
+container*; that internal bind is intentional for container networking and is
+safe **only** because the host publishes `127.0.0.1:8000:8000` (loopback
+only). The same applies to the frontend (`127.0.0.1:80:80`). Container
+internal binding must never be confused with host exposure. Changing a
+publication to `8000:8000` or `80:80` exposes the unauthenticated API/frontend
+beyond the local host and is **prohibited** for the current release.
 
 ## 19. Error / Failure Handling
 
@@ -509,3 +516,13 @@ exception **classes**, never payloads or keys.
   (`_severity_for` ladder).
 - **Deployment scope.** Single-user, no authentication — CyberShield is a
   local/portfolio deployment, not a multi-tenant SaaS.
+- **TLS boundary.** Plain HTTP is acceptable **only** because the deployment
+  is strictly loopback-bound (`127.0.0.1` publications, §18). If CyberShield
+  is ever made LAN-, internet-, remotely accessible or placed behind a public
+  reverse proxy, the architecture must be reassessed and **HTTPS/TLS, HSTS,
+  authentication, authorization, rate limiting** and additional exposure
+  controls become required before that deployment. The local HTTP setup is
+  not suitable for public exposure.
+- **Rate limiting.** Intentionally absent from the local single-user loopback
+  release; any non-loopback deployment requires a separate security
+  architecture review.

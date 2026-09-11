@@ -20,6 +20,7 @@ shared :data:`app.modules.registry.MODULE_REGISTRY` is used.
 
 import asyncio
 import logging
+import re
 from collections.abc import Callable, Sequence
 
 from app.modules.base import TARGET_URL, BaseModule
@@ -32,6 +33,35 @@ from app.utils.time import utc_now
 from app.utils.urls import extract_domain, normalize_url, validate_url
 
 logger = logging.getLogger("cybershield.scan_manager")
+
+_URL_USERINFO = re.compile(r"(?i)([a-z][a-z0-9+.\-]*://)[^/@\s]+@")
+
+
+def _safe_target_label(target: str) -> str:
+    """Return a log-safe, hostname-only label for a scan target.
+
+    The hostname is derived only after the target passes URL validation, so
+    userinfo (embedded credentials) is never built into the label. When
+    validation fails the target is treated as untrusted: a generic label is
+    returned instead of attempting to parse it solely for logging.
+    """
+    try:
+        if not validate_url(target):
+            return "<invalid target>"
+        hostname = extract_domain(target)
+    except Exception:  # noqa: BLE001 - logging must never raise
+        return "<unparsable target>"
+    return hostname if hostname else "<invalid target>"
+
+
+def _safe_exception_text(exc: BaseException) -> str:
+    """Exception text with URL userinfo (credentials) redacted.
+
+    A failing module may echo the target in its error message; stripping the
+    userinfo segment keeps ``user:password@`` out of logs and error payloads
+    while preserving the scheme and hostname for context.
+    """
+    return _URL_USERINFO.sub(r"\1<redacted>@", str(exc))
 
 
 class ScanManager:
@@ -76,7 +106,11 @@ class ScanManager:
                 results[module.name] = result
 
         if not target_is_valid:
-            logger.warning("Rejecting invalid target %r during analysis", target)
+            logger.warning(
+                "Rejecting invalid target (length=%d) as %s during analysis",
+                len(target),
+                _safe_target_label(target),
+            )
 
         response = self._engine(results)
         return response.model_copy(
@@ -103,13 +137,20 @@ class ScanManager:
         try:
             return await asyncio.to_thread(module.run, subject)
         except Exception as exc:  # noqa: BLE001 - pipeline must not abort
-            logger.exception("Module %s failed for %s: %s", module.name, subject, exc)
+            safe_text = _safe_exception_text(exc)
+            logger.error(
+                "Module %s failed for %s (%s): %s",
+                module.name,
+                _safe_target_label(subject),
+                type(exc).__name__,
+                safe_text,
+            )
             return ModuleResult(
                 module=module.name,
                 status="error",
                 score=0,
                 confidence=0,
-                details={"error": str(exc)},
+                details={"error": safe_text},
             )
 
 
