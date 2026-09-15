@@ -67,7 +67,7 @@ whole calculation is auditable: every point traces back to evidence."*
 
 ## 5. Explain the verdict and confidence
 
-Next to the score: e.g. **83 / Low Risk / 89% confidence**.
+Next to the score: e.g. **85 / Low Risk / 89% confidence**.
 
 **Say:** *"The verdict comes from fixed boundaries — 90–100 Trusted, 75–89 Low
 Risk, down to Critical below 25. Confidence is separate from the score: it's
@@ -85,6 +85,21 @@ blacklist and phishing. Each shows a status badge — ok, warning or critical �
 a module score and confidence. Click a card to expand its details. For
 example example.com's SSL module shows a valid Cloudflare-issued certificate
 with TLS 1.3; the DNS module shows the records it actually resolved."*
+
+## 6b. Explain the Infrastructure context
+
+When the dashboard shows an **Infrastructure context** card next to the module
+grid, mention it.
+
+**Say:** *"You'll see one more card here — Infrastructure context. It is purely
+informational, so it is deliberately separate from the eleven scored security
+modules. When the optional provider is configured it records contextual
+hosting and location data for the domain's resolved public IPs — ASN, hosting
+organization, network and country/region. It carries zero weight: it can never
+move the Trust Score, the confidence or the verdict, and it never creates
+findings. It is off by default, so an empty or unavailable Infrastructure
+profile is expected without that provider — that is missing context, not a
+vulnerability score."*
 
 ## 7. Show findings
 
