@@ -139,7 +139,8 @@ run_scan(target)
  │    ├─ Stage 1 (concurrent, only if target is valid):
  │    │    asyncio.gather(*[asyncio.to_thread(m.run, domain) …])
  │    │    — reputation, whois, dns, ssl, headers, typosquatting,
- │    │      brand_detection, threatintel, blacklist, phishing
+ │    │      brand_detection, threatintel, blacklist, phishing,
+ │    │      infrastructure (informational, unweighted)
  │    ├─ engine(results) → AnalysisResponse (score, confidence, verdict,
  │    │    severity summary, modules in registry order, ranked findings)
  │    └─ stamp scan_id, target, normalized_url, domain, started/completed_at
@@ -184,10 +185,28 @@ Registered pipeline (in order) and their module weights:
 | 8 | `threatintel` | domain | 15 |
 | 9 | `blacklist` | domain | 10 |
 | 10 | `phishing` | domain | 10 |
+| 11 | `infrastructure` | domain | **no weight — informational** |
 
 A module that raises is caught by the ScanManager and replaced with a
 `ModuleResult(status="error", score=0, confidence=0, details={"error": …})` —
 one broken scanner never aborts the scan.
+
+### 5.1 Informational Infrastructure Module
+
+`infrastructure` (`app/modules/infrastructure/`) is registered in the pipeline
+but is **deliberately absent from `MODULE_WEIGHTS`**
+(`app/risk_engine/weights.py`). The scorer skips any module without a weight, so
+this module can never affect the Trust Score, confidence, verdict, module
+penalties or finding severities — in any state (available, unavailable, or
+enabled vs disabled). It resolves the target's public IPs through the hardened
+networking layer (`parse_host` → `resolve_public_host`, §20) and, when
+`INFRASTRUCTURE_ENABLED` is set and a provider is configured, records contextual
+hosting/location data (ASN, hosting organization, network/CIDR, country/region,
+reverse DNS) under `ModuleResult.details.infrastructure`. It is off by default
+(`INFRASTRUCTURE_ENABLED=false`); a missing key or disabled flag yields an
+informational `unavailable` profile with score 100, confidence 100 and **no
+findings**. The invariant (byte-identical `AnalysisResponse` with the module on
+vs off) is locked by tests.
 
 ## 6. Standardized Module Output Contract
 
@@ -253,7 +272,7 @@ Design consequences:
   (`rules.py` per module), every point in the score is traceable to evidence.
 
 In practice: the reference scan of `https://example.com` produced module
-scores the engine aggregated into `trust_score: 83`.
+scores the engine aggregated into `trust_score: 85`.
 
 ## 9. Verdict and Confidence
 
@@ -498,11 +517,16 @@ exception **classes**, never payloads or keys.
   `VIRUS_TOTAL_API_KEY`, `AI_API_KEY`) come from the environment, are never
   hard-coded, persisted or logged; compose passes them via `env_file`.
 - **SSRF guards** (`app/utils/networking.py`). Modules that contact a
-  user-supplied host (headers, ports) call `validate_public_host`: hostnames
-  like `localhost`/`.local` are refused outright; DNS results are checked
-  against `is_private`, `is_loopback`, `is_link_local`, `is_reserved`,
-  `is_multicast`, `is_unspecified`, plus the CGNAT range `100.64.0.0/10`
-  (RFC 6598). Any non-public record → refused (defense in depth).
+  user-supplied host (headers, ports, infrastructure) resolve the destination
+  **once** via `resolve_public_host`: hostnames like `localhost`/`.local` are
+  refused outright; DNS results are checked against `is_private`,
+  `is_loopback`, `is_link_local`, `is_reserved`, `is_multicast`,
+  `is_unspecified`, plus the CGNAT range `100.64.0.0/10` (RFC 6598). Any
+  non-public record → refused (defense in depth). Callers connect to the
+  pinned validated public IP literals and never re-resolve the hostname,
+  which closes the DNS-rebinding/TOCTOU window. Note the boundary is enforced
+  at the connection-capable modules — the `/scan` API itself accepts a target
+  for analysis and does not independently re-validate it.
 - **CORS allowlist.** `CYBERSHIELD_CORS_ORIGINS` (default: local Vite dev
   origins); production/Docker sets `http://localhost`. Never `*`.
 - **Input validation.** URL shape, scan-target length, module-level rules; the

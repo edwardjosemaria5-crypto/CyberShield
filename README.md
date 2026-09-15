@@ -5,10 +5,11 @@
 [![FastAPI](https://img.shields.io/badge/FastAPI-009688.svg)](backend)
 [![React 19](https://img.shields.io/badge/React-19-61DAFB.svg)](frontend)
 [![Docker Compose](https://img.shields.io/badge/Docker-Compose-2496ED.svg)](docker-compose.yml)
+[![CI](https://img.shields.io/badge/CI-GitHub%20Actions-2088FF.svg)](.github/workflows/ci.yml)
 
-CyberShield is a full-stack website security assessment platform. Submit a domain or URL, and a pipeline of detection modules collects evidence across URL structure, DNS, WHOIS, SSL/TLS, security headers, reputation, blacklists, phishing heuristics, typosquatting and threat intelligence — then aggregates it into an explainable **Trust Score**, **verdict**, **confidence** and severity-ranked **findings** with recommendations.
+CyberShield is a full-stack website/domain security assessment platform. Submit a domain or URL, and a pipeline of detection modules collects evidence across URL structure, DNS, WHOIS, SSL/TLS, security headers, reputation, blacklists, phishing heuristics, typosquatting and threat intelligence — plus an informational **Infrastructure context** — then aggregates it into an explainable **Trust Score**, **verdict**, **confidence** and severity-ranked **findings** with recommendations.
 
-Every result is deterministic and evidence-based: the Risk Engine owns the score, each finding carries a severity, a plain-language description and a recommendation, and an optional AI layer explains *why* the result was reached without ever influencing it.
+Every result is deterministic and evidence-based: the Risk Engine owns the score, each finding carries a severity, a plain-language description and a recommendation, and an optional AI layer explains *why* the result was reached without ever influencing it. Every completed scan is persisted, retrievable from history, and exportable as JSON, CSV or PDF.
 
 ![CyberShield dashboard — real scan result](docs/assets/dashboard-view.png)
 
@@ -45,7 +46,7 @@ The strongest security engineering decisions:
 
 | Control | Implementation |
 | --- | --- |
-| SSRF protection | Target hosts are resolved and refused if private, loopback, link-local, reserved, multicast, CGNAT or well-known private hostnames before any connection (`backend/app/utils/networking.py`) |
+| SSRF / outbound boundary | The scan API accepts a target for analysis; **connection-capable modules** (security headers, ports, SSL, Infrastructure) resolve the destination **once** and refuse it at connect time if it is private, loopback, link-local, reserved, multicast, CGNAT (RFC 6598) or a well-known private hostname (`backend/app/utils/networking.py`). Blocks are decided on all resolved addresses, and DNS is pinned to the validated public IP literals to close the rebinding/TOCTOU window. Defense in depth — see [Security Model](docs/security-model.md) |
 | Environment-only secrets | API keys are read from the environment, never hard-coded, persisted or logged; failures log exception *classes*, not payloads (`backend/app/core/config.py`) |
 | Outbound request controls | External calls never retry, provider penalties are capped, and report downloads set `nosniff` + `no-store` headers |
 | Failure isolation | A failing module or storage write degrades to an error/unavailable signal and cannot change the scan result the user receives |
@@ -92,11 +93,12 @@ required. The local HTTP setup is not suitable for public exposure.
 A scan flows through a registry-driven pipeline:
 
 1. **Validate** the target — invalid URLs are rejected up front and never scanned by domain modules.
-2. **Scan concurrently** — 11 registered modules collect evidence: URL structure, DNS, WHOIS, SSL/TLS, HTTP security headers, reputation, blacklists, phishing heuristics, typosquatting, brand detection and threat intelligence.
-3. **Correlate threat intelligence** — provider adapters (Google Safe Browsing, VirusTotal) reconcile only among *available* providers.
-4. **Score deterministically** — the Risk Engine produces the 0–100 Trust Score, confidence and verdict.
-5. **Explain (optional)** — a score-blind AI summary explains the result; its failure never breaks a scan.
-6. **Persist and report** — every scan is stored by ID and exportable as JSON, CSV or PDF.
+2. **Scan concurrently** — 11 scored modules collect evidence: URL structure, DNS, WHOIS, SSL/TLS, HTTP security headers, reputation, blacklists, phishing heuristics, typosquatting, brand detection and threat intelligence.
+3. **Add Infrastructure context** — an informational, unweighted module records hosting/location context (ASN, hosting organization, country/region) for the resolved public IPs. It is display context only: it carries no Risk Engine weight, cannot alter the Trust Score or confidence, and never creates findings.
+4. **Correlate threat intelligence** — provider adapters (Google Safe Browsing, VirusTotal) reconcile only among *available* providers.
+5. **Score deterministically** — the Risk Engine produces the 0–100 Trust Score, confidence and verdict from the 11 scored modules only.
+6. **Explain (optional)** — a score-blind AI summary explains the result; its failure never breaks a scan.
+7. **Persist and report** — every scan is stored by ID and exportable as JSON, CSV or PDF.
 
 ---
 
@@ -109,11 +111,13 @@ A scan flows through a registry-driven pipeline:
 | Explainable findings | Severity-ranked findings, each with a description and a recommendation |
 | Threat intelligence | Local heuristics always run; Google Safe Browsing v4 and VirusTotal v3 adapters when keys are configured |
 | Multi-provider correlation | Agreement/conflict reconciliation computed only among available providers |
+| Infrastructure context | Informational hosting/location context (ASN, org, country/region) — zero weight, never affects the score |
 | Optional AI explanation | Score-blind plain-language summary, disabled by default |
 | History / persistence | Every scan stored and retrievable by scan ID |
 | Reporting | JSON, CSV and PDF export from the stored snapshot |
-| Deployment | Docker Compose (backend + frontend images) |
-| Automated testing | 278 backend tests, all passing; frontend lint and build verified |
+| Deployment | Docker Compose (backend + frontend images), loopback-only publication |
+| Automated testing | **491 backend tests + 45 frontend tests passing**; lint, production build, `pip check` clean |
+| Automated CI | GitHub Actions: backend suite, frontend lint/build/tests, Docker boundary contract, committed-secret scan |
 
 ---
 
@@ -138,6 +142,20 @@ The Risk Engine (`backend/app/risk_engine/`) is the deterministic aggregation la
 Design principle: a **failure to obtain evidence is never evidence of maliciousness**. An unavailable WHOIS lookup yields an informational finding and zero penalty; it never becomes a security finding.
 
 The optional AI layer **does not control the score** — it explains an already-computed result.
+
+---
+
+## Infrastructure Context
+
+Alongside the 11 scored modules, every scan runs an **informational Infrastructure module** (`backend/app/modules/infrastructure/`) that records contextual hosting/location data for the target's resolved public IPs: ASN, hosting organization, network/CIDR, country/region and reverse DNS (when the configured provider answers).
+
+It is deliberately **isolated from the security score**:
+
+- It is registered in the scan pipeline but is **absent from the Risk Engine weight table** (`backend/app/risk_engine/weights.py`), so it has **zero weight**.
+- It **cannot** alter the Trust Score, the verdict or the confidence.
+- It **never creates security findings** — its result is display context only, and an unavailable provider degrades to an informational `unavailable` state with score 100 and no findings (a missing data point is never treated as evidence).
+
+This invariant is enforced by tests (byte-identical `AnalysisResponse` with the module enabled vs disabled). The Infrastructure module is off by default (`INFRASTRUCTURE_ENABLED=false`).
 
 ---
 
@@ -190,13 +208,28 @@ Verified against the current implementation:
 
 | Check | Result |
 | --- | --- |
-| Backend pytest suite | **278 passed** (`cd backend && ..\.venv\Scripts\python.exe -m pytest`) |
+| Backend pytest suite | **491 passed** (`cd backend && ..\.venv\Scripts\python.exe -m pytest`) |
+| Frontend test suite | **45 passed** (`cd frontend && npm test`) |
 | Frontend lint | `cd frontend && npm run lint` → clean |
-| Frontend build | `cd frontend && npm run build` → successful |
+| Frontend production build | `cd frontend && npm run build` → successful |
 | Dependency health | `pip check` → no broken requirements |
-| Real-user walkthrough | 4/4 cases passed against the live API and built frontend during release preparation |
+| Docker Compose contract | Loopback-only publication + SQLite persistence asserted by CI |
+| System validation | Stage 1 · 3A · 3B · 3C completed — API, security abuse, reliability, browser (`docs/validation.md`) |
 
-Tests exercise the modules, pipeline, risk engine, threat-intel adapters and correlation with injected mocks — no network or real API keys are required. The deterministic result is asserted byte-identical with AI on, off, or failing.
+Tests exercise the modules, pipeline, risk engine, threat-intel adapters and correlation with injected mocks — no network or real API keys are required. The deterministic result is asserted byte-identical with AI on, off, or failing. The complete validation record — including the security model and known observations — is in [Validation](docs/validation.md) and [Security Model](docs/security-model.md).
+
+---
+
+## Validation Evidence
+
+The release was validated **end-to-end**, not just unit-tested:
+
+- **Automated regression** — 491 backend tests and 45 frontend tests, lint/build/`pip check` clean.
+- **Live API smoke + security abuse** — scan lifecycle, private-host refusal, outbound guards, header footprint, logging redaction.
+- **Reliability** — concurrent scans, module failure isolation, persistence across restart, snapshot/export integrity.
+- **Browser validation** — the real scan journey (enter target → Trust Score → modules → Infrastructure context → findings → history → report → JSON/CSV/PDF export) verified in a live browser at 1440×900, 1024×768 and 390×844.
+
+The full record — including the honest limitations and the one defense-in-depth observation (OBS-3B-01) — is documented in [docs/validation.md](docs/validation.md) and [docs/security-model.md](docs/security-model.md). No unsupported claim is made beyond what was executed and recorded there.
 
 ---
 
@@ -253,12 +286,14 @@ Key endpoints:
 
 | Method | Path | Purpose |
 | --- | --- | --- |
-| GET | `/scan/{target}` · POST `/scan` | Full scan of a URL/domain |
+| GET | `/scan/{target}` · POST `/scan` | Full scan of a URL/domain (the complete pipeline) |
 | GET | `/history` · `/history/{scan_id}` | List and retrieve stored scans |
 | GET | `/reports/{scan_id}/{fmt}` | Export report (`json`, `csv`, `pdf`) |
 | GET | `/health` | Service health check |
 
-Plus one endpoint per analysis module (`/dns/{domain}`, `/whois/{domain}`, `/ssl/{domain}`, `/headers/{domain}`, `/reputation/{domain}`, `/typosquatting/{domain}`, `/brand-detection/{domain}`, `/threatintel/{domain}`, `/url-analysis/{url}`). Scan targets are capped at 2048 characters; exports are generated from the stored snapshot — never by rescanning.
+Standalone per-module endpoints, for single-module analysis or scripting: `/url-analysis/{url}`, `/dns/{domain}`, `/whois/{domain}`, `/ssl/{domain}`, `/headers/{domain}`, `/reputation/{domain}`, `/typosquatting/{domain}`, `/brand-detection/{domain}`, `/threatintel/{domain}`, and `/ports/{host}` (port exposure check — standalone only, not part of the scan pipeline).
+
+Scan targets are capped at 2048 characters; exports are generated from the stored snapshot — never by rescanning.
 
 ---
 
@@ -271,7 +306,7 @@ Plus one endpoint per analysis module (`/dns/{domain}`, `/whois/{domain}`, `/ssl
 - **Single-user, no authentication.** CyberShield runs as a local/portfolio deployment, not a multi-tenant SaaS.
 - **No rate limiting.** Rate limiting is intentionally absent from the local single-user loopback release. Any non-loopback deployment requires a separate security architecture review.
 - **No database migration/backup tooling.** Schema is initialized idempotently (`init_db` → `create_all`); a migration/backup strategy is deferred for future long-lived or multi-user deployment.
-- **No automated CI pipeline yet.** Containerized runtime is verified locally; image builds and runtime checks are not yet CI-gated.
+- **CI validates the release contract, not every system behavior.** GitHub Actions runs the backend suite, frontend lint/build/tests, the Compose loopback/SQLite boundary assertion and a committed-secret scan; browser/system-level validation remains a manual release step (recorded in `docs/validation.md`).
 - **Frontend dependency audit finding.** `npm audit` reports one pre-existing high-severity vulnerability in the frontend dependency tree — tracked as a security-maintenance follow-up, with no arbitrary package upgrades.
 
 ---
@@ -280,7 +315,7 @@ Plus one endpoint per analysis module (`/dns/{domain}`, `/whois/{domain}`, `/ssl
 
 ### v1 — Released
 
-Full assessment pipeline, 11 modules, deterministic Risk Engine, threat-intelligence correlation, optional AI explanations, history/persistence, JSON/CSV/PDF reports, React frontend, 278-test backend suite, Docker Compose deployment.
+Validated full assessment pipeline: **11 scored security modules + 1 informational Infrastructure context**, deterministic Risk Engine, threat-intelligence correlation, optional AI explanations, history/persistence, JSON/CSV/PDF reports, React frontend, **491 backend + 45 frontend tests**, automated CI (backend, frontend, Docker boundary contract, committed-secret scan), Docker Compose loopback-only deployment. System validation recorded in [docs/validation.md](docs/validation.md).
 
 ### v1.1+ — Future work
 
@@ -292,9 +327,9 @@ Not yet implemented:
 - User accounts and authentication
 - Deeper phishing model (e.g. ML-assisted heuristics)
 - Enhanced correlation (provenance-tagged confidence)
-- CI pipeline with coverage gates and containerized runtime verification
+- CI coverage gates and containerized runtime verification
 
-A design document for v1.1 infrastructure-location enrichment (ASN, hosting organization, country/region intelligence) exists as future work and is **not** implemented functionality in v1.
+The design document that preceded the now-implemented Infrastructure module (`docs/v1.1-infrastructure-location.md`) is retained as a historical record; the hosting/location context described there is implemented in v1 and validated.
 
 ---
 
@@ -308,4 +343,7 @@ MIT — see [LICENSE](LICENSE).
 
 - `backend/README.md` — deep backend technical reference (modules, scoring, providers)
 - `docs/architecture.md` — architecture reference
+- `docs/security-model.md` — trust boundaries, SSRF model, Infrastructure isolation, known observations
+- `docs/validation.md` — recorded end-to-end system validation (Stages 1–3C)
+- `docs/release-notes.md` — validated release summary
 - `docs/demo-walkthrough.md` — step-by-step demo walkthrough
